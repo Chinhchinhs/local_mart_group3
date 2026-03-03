@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'features/cart/presentation/cart_screen.dart'; // Import màn hình giỏ hàng của bạn vào
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'features/cart/domain/usecases/add_to_cart_usecase.dart';
+import 'features/cart/presentation/bloc/cart_bloc.dart';
+import 'features/cart/presentation/cart_screen.dart';
 
 void main() {
-  // Điểm bắt đầu của toàn bộ ứng dụng
   runApp(const LocalMartApp());
 }
 
@@ -13,13 +15,12 @@ class LocalMartApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Local Mart',
-      debugShowCheckedModeBanner: false, // Tắt cái chữ "DEBUG" góc phải màn hình cho đỡ vướng
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
+      debugShowCheckedModeBanner: false,
+      // Dùng BlocProvider để cung cấp CartBloc cho toàn bộ ứng dụng
+      home: BlocProvider(
+        create: (context) => CartBloc(AddToCartUseCase()),
+        child: const CartScreen(),
       ),
-      // Tạm thời cài đặt trang chủ là màn hình Giỏ hàng để bạn dễ làm việc
-      home: const CartScreen(),
     );
   }
 }
