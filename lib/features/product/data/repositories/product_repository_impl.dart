@@ -20,6 +20,11 @@ class ProductRepositoryImpl implements ProductRepository {
   }
 
   @override
+  Future<void> deleteProduct(String id) async {
+    dataSource.deleteProduct(id);
+  }
+
+  @override
   Future<void> addProduct(ProductEntity product) async {
     final model = ProductModel(
       id: product.id,

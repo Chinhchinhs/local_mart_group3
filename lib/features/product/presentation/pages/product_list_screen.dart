@@ -4,9 +4,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/product_bloc.dart';
 import 'product_detail_screen.dart';
 import 'add_product_screen.dart';
+import '../../../cart/presentation/cart_screen.dart';
+import '../bloc/product_bloc.dart';
+import 'admin_action_screen.dart';
 
 class ProductListScreen extends StatelessWidget {
-  const ProductListScreen({super.key});
+  final bool isDeleteMode;
+
+  const ProductListScreen({
+    super.key,
+    this.isDeleteMode = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +29,19 @@ class ProductListScreen extends StatelessWidget {
             _showAdminLogin(context);
           },
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.shopping_cart),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const CartScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: BlocBuilder<ProductBloc, ProductState>(
         builder: (context, state) {
@@ -33,26 +54,46 @@ class ProductListScreen extends StatelessWidget {
             ),
             itemBuilder: (context, index) {
               final product = state.products[index];
-              return GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ProductDetailScreen(product: product),
-                    ),
-                  );
-                },
-                child: Card(
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Image.network(product.imageUrl),
+              return Stack(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (!isDeleteMode) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProductDetailScreen(product: product),
+                          ),
+                        );
+                      }
+                    },
+                    child: Card(
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: Image.network(product.imageUrl),
+                          ),
+                          Text(product.name),
+                          Text("${product.price} VND"),
+                        ],
                       ),
-                      Text(product.name),
-                      Text("${product.price} VND"),
-                    ],
+                    ),
                   ),
-                ),
+
+                  if (isDeleteMode)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          context
+                              .read<ProductBloc>()
+                              .add(DeleteProductEvent(product.id));
+                        },
+                      ),
+                    ),
+                ],
               );
             },
           );
@@ -79,7 +120,7 @@ class ProductListScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const AddProductScreen(),
+                    builder: (_) => const AdminActionScreen(),
                   ),
                 );
               }

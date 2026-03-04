@@ -9,10 +9,14 @@ import 'features/product/domain/usecases/get_products_usecase.dart';
 import 'features/product/domain/usecases/add_product_usecase.dart';
 import 'features/product/presentation/bloc/product_bloc.dart';
 import 'features/product/presentation/pages/product_list_screen.dart';
+import 'features/product/domain/usecases/delete_product_usecase.dart';
 
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-void main() {
   final productDataSource = ProductLocalDataSource();
+  await productDataSource.init();
+
   final productRepository = ProductRepositoryImpl(productDataSource);
 
   runApp(
@@ -25,6 +29,7 @@ void main() {
           create: (_) => ProductBloc(
             GetProductsUseCase(productRepository),
             AddProductUseCase(productRepository),
+            DeleteProductUseCase(productRepository),
           ),
         ),
       ],
