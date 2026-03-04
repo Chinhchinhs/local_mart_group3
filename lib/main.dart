@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+// --- Import phần Cart (Giỏ hàng) ---
+import 'features/cart/data/datasources/cart_database_helper.dart';
+import 'features/cart/data/datasources/cart_local_datasource.dart';
+import 'features/cart/domain/repositories/cart_repository_impl.dart';
 import 'features/cart/domain/usecases/add_to_cart_usecase.dart';
 import 'features/cart/presentation/bloc/cart_bloc.dart';
-import 'features/cart/presentation/cart_screen.dart';
+
+// --- Import phần Product (Sản phẩm) ---
 import 'features/product/data/datasources/product_local_datasource.dart';
 import 'features/product/data/repositories/product_repository_impl.dart';
 import 'features/product/domain/usecases/get_products_usecase.dart';
@@ -10,7 +16,21 @@ import 'features/product/domain/usecases/add_product_usecase.dart';
 import 'features/product/presentation/bloc/product_bloc.dart';
 import 'features/product/presentation/pages/product_list_screen.dart';
 
-void main() {
+
+void main() async {
+  // 1. Đảm bảo Flutter đã sẵn sàng để gọi các dịch vụ Native (như SQLite)
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // --- KHỞI TẠO SQLITE CHO GIỎ HÀNG ---
+  // 2. Gọi file cấu hình DB
+  final cartDbHelper = CartDatabaseHelper.instance;
+  // 3. Giao DB cho anh Thợ đào vàng
+  final cartDataSource = CartLocalDataSourceImpl(cartDbHelper);
+  // 4. Giao anh Thợ đào vàng cho Quản lý kho
+  final cartRepository = CartRepositoryImpl(cartDataSource);
+
+  // --- KHỞI TẠO PHẦN SẢN PHẨM ---
+
   final productDataSource = ProductLocalDataSource();
   final productRepository = ProductRepositoryImpl(productDataSource);
 
@@ -18,7 +38,8 @@ void main() {
     MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) => CartBloc(AddToCartUseCase()),
+          // 5. Truyền Repository vào Bloc VÀ gọi luôn sự kiện tải giỏ hàng cũ (LoadCartEvent)
+          create: (_) => CartBloc(AddToCartUseCase(), cartRepository)..add(LoadCartEvent()),
         ),
         BlocProvider(
           create: (_) => ProductBloc(
