@@ -1,9 +1,9 @@
+// features/product/presentation/pages/product_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../cart/domain/entities/cart_item_entity.dart';
 import '../../../cart/presentation/bloc/cart_bloc.dart';
 import '../../domain/entities/product_entity.dart';
-import 'dart:io';
 
 class ProductDetailScreen extends StatelessWidget {
   final ProductEntity product;
@@ -18,7 +18,7 @@ class ProductDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Image.file(File(product.imageUrl)),
+            Image.network(product.imageUrl),
             const SizedBox(height: 16),
             Text(product.name, style: const TextStyle(fontSize: 22)),
             Text("${product.price} VND"),
