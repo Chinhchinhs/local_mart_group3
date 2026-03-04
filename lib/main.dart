@@ -10,8 +10,6 @@ import 'features/product/domain/usecases/add_product_usecase.dart';
 import 'features/product/presentation/bloc/product_bloc.dart';
 import 'features/product/presentation/pages/product_list_screen.dart';
 
-
-
 void main() {
   final productDataSource = ProductLocalDataSource();
   final productRepository = ProductRepositoryImpl(productDataSource);

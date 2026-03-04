@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../cart/domain/entities/cart_item_entity.dart';
 import '../../cart/presentation/bloc/cart_bloc.dart';
+import 'invoice_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
   final List<CartItemEntity> items;
@@ -98,17 +99,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: ElevatedButton(
                 onPressed: () {
 
-                  context.read<CartBloc>().add(ClearCartEvent());
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text(
-                            "Thanh toán thành công 🎉")),
-                  );
-
-                  Navigator.popUntil(
+                  Navigator.push(
                     context,
-                        (route) => route.isFirst,
+                    MaterialPageRoute(
+                      builder: (_) => InvoiceScreen(
+                        items: widget.items,
+                        totalPrice: widget.totalPrice,
+                        name: widget.name,
+                        phone: widget.phone,
+                        address: widget.address,
+                        paymentMethod: selectedMethod,
+                      ),
+                    ),
                   );
                 },
                 child: const Text("THANH TOÁN"),
