@@ -3,9 +3,34 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'features/cart/domain/usecases/add_to_cart_usecase.dart';
 import 'features/cart/presentation/bloc/cart_bloc.dart';
 import 'features/cart/presentation/cart_screen.dart';
+import 'features/product/data/datasources/product_local_datasource.dart';
+import 'features/product/data/repositories/product_repository_impl.dart';
+import 'features/product/domain/usecases/get_products_usecase.dart';
+import 'features/product/domain/usecases/add_product_usecase.dart';
+import 'features/product/presentation/bloc/product_bloc.dart';
+import 'features/product/presentation/pages/product_list_screen.dart';
+
 
 void main() {
-  runApp(const LocalMartApp());
+  final productDataSource = ProductLocalDataSource();
+  final productRepository = ProductRepositoryImpl(productDataSource);
+
+  runApp(
+    MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => CartBloc(AddToCartUseCase()),
+        ),
+        BlocProvider(
+          create: (_) => ProductBloc(
+            GetProductsUseCase(productRepository),
+            AddProductUseCase(productRepository),
+          ),
+        ),
+      ],
+      child: const LocalMartApp(),
+    ),
+  );
 }
 
 class LocalMartApp extends StatelessWidget {
@@ -13,14 +38,9 @@ class LocalMartApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Local Mart',
+    return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      // Dùng BlocProvider để cung cấp CartBloc cho toàn bộ ứng dụng
-      home: BlocProvider(
-        create: (context) => CartBloc(AddToCartUseCase()),
-        child: const CartScreen(),
-      ),
+      home: ProductListScreen(),
     );
   }
 }
