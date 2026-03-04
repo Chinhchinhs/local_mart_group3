@@ -7,7 +7,7 @@ class GetProductDetailUseCase {
 
   GetProductDetailUseCase(this.repository);
 
-  Future<ProductEntity> call(String id) {
+  Future<ProductEntity?> call(String id) {
     return repository.getProductById(id);
   }
 }

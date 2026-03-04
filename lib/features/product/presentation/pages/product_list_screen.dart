@@ -1,14 +1,13 @@
-// features/product/presentation/pages/product_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/product_bloc.dart';
 import 'product_detail_screen.dart';
-import 'add_product_screen.dart';
 import '../../../cart/presentation/cart_screen.dart';
-import '../bloc/product_bloc.dart';
 import 'admin_action_screen.dart';
+import 'dart:io';
+import '../bloc/product_state.dart';
 
-class ProductListScreen extends StatelessWidget {
+class ProductListScreen extends StatefulWidget {
   final bool isDeleteMode;
 
   const ProductListScreen({
@@ -17,8 +16,19 @@ class ProductListScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  State<ProductListScreen> createState() => _ProductListScreenState();
+}
+
+class _ProductListScreenState extends State<ProductListScreen> {
+
+  @override
+  void initState() {
+    super.initState();
     context.read<ProductBloc>().add(LoadProductsEvent());
+  }
+
+  @override
+  Widget build(BuildContext context) {
 
     return Scaffold(
       appBar: AppBar(
@@ -43,67 +53,53 @@ class ProductListScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: BlocBuilder<ProductBloc, ProductState>(
-        builder: (context, state) {
-          return GridView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: state.products.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.75,
-            ),
-            itemBuilder: (context, index) {
-              final product = state.products[index];
-              return Stack(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      if (!isDeleteMode) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ProductDetailScreen(product: product),
-                          ),
-                        );
-                      }
-                    },
-                    child: Card(
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: Image.network(product.imageUrl),
-                          ),
-                          Text(product.name),
-                          Text("${product.price} VND"),
-                        ],
-                      ),
-                    ),
-                  ),
+        body: BlocBuilder<ProductBloc, ProductState>(
+          builder: (context, state) {
 
-                  if (isDeleteMode)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          context
-                              .read<ProductBloc>()
-                              .add(DeleteProductEvent(product.id));
-                        },
+            if (state.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (state.products.isEmpty) {
+              return const Center(child: Text("Chưa có sản phẩm"));
+            }
+
+            return GridView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: state.products.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.75,
+              ),
+              itemBuilder: (context, index) {
+                final product = state.products[index];
+
+                return Card(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Image.file(
+                          File(product.imageUrl),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.image, size: 50),
+                        ),
                       ),
-                    ),
-                ],
-              );
-            },
-          );
-        },
-      ),
+                      Text(product.name),
+                      Text("${product.price} VND"),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
     );
   }
 
   void _showAdminLogin(BuildContext context) {
     final controller = TextEditingController();
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(

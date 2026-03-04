@@ -1,4 +1,3 @@
-// features/product/data/repositories/product_repository_impl.dart
 import '../../domain/entities/product_entity.dart';
 import '../../domain/repositories/product_repository.dart';
 import '../datasources/product_local_datasource.dart';
@@ -11,17 +10,12 @@ class ProductRepositoryImpl implements ProductRepository {
 
   @override
   Future<List<ProductEntity>> getProducts() async {
-    return dataSource.getProducts();
+    return await dataSource.getProducts();
   }
 
   @override
-  Future<ProductEntity> getProductById(String id) async {
-    return dataSource.getProductById(id);
-  }
-
-  @override
-  Future<void> deleteProduct(String id) async {
-    dataSource.deleteProduct(id);
+  Future<ProductEntity?> getProductById(String id) async {
+    return await dataSource.getProductById(id);
   }
 
   @override
@@ -33,6 +27,12 @@ class ProductRepositoryImpl implements ProductRepository {
       description: product.description,
       imageUrl: product.imageUrl,
     );
-    dataSource.addProduct(model);
+
+    await dataSource.addProduct(model);
+  }
+
+  @override
+  Future<void> deleteProduct(String id) async {
+    await dataSource.deleteProduct(id);
   }
 }

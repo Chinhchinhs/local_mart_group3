@@ -1,47 +1,93 @@
+import 'dart:async';
+import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
 import '../models/product_model.dart';
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ProductLocalDataSource {
-  List<ProductModel> _products = [];
+  static Database? _database;
 
+  /// 🔥 Lấy database instance
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDB();
+    return _database!;
+  }
+
+  /// 🔥 Khởi tạo database
+  Future<Database> _initDB() async {
+    final path = join(await getDatabasesPath(), 'products.db');
+
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: (db, version) async {
+        await db.execute('''
+          CREATE TABLE products(
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            price INTEGER,
+            description TEXT,
+            imageUrl TEXT
+          )
+        ''');
+      },
+    );
+  }
+
+  /// 🔥 Gọi trong main() để init trước
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('products');
-    if (data != null) {
-      final decoded = json.decode(data) as List;
-      _products = decoded.map((e) => ProductModel(
-        id: e['id'],
-        name: e['name'],
-        price: e['price'],
-        description: e['description'],
-        imageUrl: e['imageUrl'],
-      )).toList();
+    await database;
+  }
+
+  /// 🔥 Lấy tất cả sản phẩm
+  Future<List<ProductModel>> getProducts() async {
+    final db = await database;
+    final result = await db.query('products');
+
+    return result.map((e) => ProductModel.fromJson(e)).toList();
+  }
+
+  /// 🔥 Lấy sản phẩm theo ID
+  Future<ProductModel?> getProductById(String id) async {
+    final db = await database;
+
+    final result = await db.query(
+      'products',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (result.isNotEmpty) {
+      return ProductModel.fromJson(result.first);
     }
+
+    return null;
   }
 
-  Future<void> save() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = json.encode(_products.map((e) => {
-      'id': e.id,
-      'name': e.name,
-      'price': e.price,
-      'description': e.description,
-      'imageUrl': e.imageUrl,
-    }).toList());
-    await prefs.setString('products', data);
+  /// 🔥 Thêm sản phẩm
+  Future<void> addProduct(ProductModel product) async {
+    final db = await database;
+
+    print("ADDING PRODUCT: ${product.name}");
+
+    await db.insert(
+      'products',
+      product.toJson(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
+    final all = await db.query('products');
+    print("TOTAL PRODUCTS IN DB: ${all.length}");
   }
 
-  List<ProductModel> getProducts() => _products;
+  /// 🔥 Xóa sản phẩm
+  Future<void> deleteProduct(String id) async {
+    final db = await database;
 
-  ProductModel getProductById(String id) =>
-      _products.firstWhere((e) => e.id == id);
-
-  void addProduct(ProductModel product) {
-    _products.add(product);
-  }
-
-  void deleteProduct(String id) {
-    _products.removeWhere((e) => e.id == id);
+    await db.delete(
+      'products',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }
