@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../cart/domain/entities/cart_item_entity.dart';
-import '/features/checkout/presentation/bloc/checkout_bloc.dart';
-import '/features/checkout/domain/usecases/process_checkout_usecase.dart';
-import '/features/cart/presentation/bloc/cart_bloc.dart';
+import 'payment_screen.dart';
 
-class CheckoutScreen extends StatelessWidget {
+class CheckoutScreen extends StatefulWidget {
   final List<CartItemEntity> items;
   final double totalPrice;
 
@@ -16,169 +13,144 @@ class CheckoutScreen extends StatelessWidget {
   });
 
   @override
+  State<CheckoutScreen> createState() => _CheckoutScreenState();
+}
+
+class _CheckoutScreenState extends State<CheckoutScreen> {
+
+  final nameController = TextEditingController();
+  final phoneController = TextEditingController();
+  final addressController = TextEditingController();
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => CheckoutBloc(ProcessCheckoutUseCase()),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text("Thanh toán"),
-          backgroundColor: Colors.blueAccent,
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Xác nhận đơn hàng"),
+        backgroundColor: Colors.blueAccent,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ===== DANH SÁCH SẢN PHẨM =====
-              Expanded(
-                child: ListView.builder(
-                  itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 3,
-                      child: ListTile(
-                        leading: const Icon(Icons.shopping_bag),
-                        title: Text(
-                          item.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+
+              const Text("Thông tin người mua",
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold)),
+
+              const SizedBox(height: 10),
+
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: "Họ và tên",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              TextField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: "Số điện thoại",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              TextField(
+                controller: addressController,
+                decoration: const InputDecoration(
+                  labelText: "Địa chỉ",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              const Text("Sản phẩm",
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold)),
+
+              const SizedBox(height: 10),
+
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: widget.items.length,
+                itemBuilder: (context, index) {
+                  final item = widget.items[index];
+                  return ListTile(
+                    title: Text(item.name),
+                    subtitle: Text("SL: ${item.quantity}"),
+                    trailing: Text(
+                        "${item.price * item.quantity} VND"),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Tổng tiền:",
+                      style: TextStyle(fontSize: 16)),
+                  Text("${widget.totalPrice} VND",
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red)),
+                ],
+              ),
+
+              const SizedBox(height: 30),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+
+                    if (nameController.text.isEmpty ||
+                        phoneController.text.isEmpty ||
+                        addressController.text.isEmpty) {
+
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              "Vui lòng nhập đầy đủ thông tin"),
                         ),
-                        subtitle: Text("SL: ${item.quantity}"),
-                        trailing: Text(
-                          "${item.price * item.quantity} VND",
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red),
+                      );
+                      return;
+                    }
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PaymentScreen(
+                          items: widget.items,
+                          totalPrice: widget.totalPrice,
+                          name: nameController.text,
+                          phone: phoneController.text,
+                          address: addressController.text,
                         ),
                       ),
                     );
                   },
+                  child: const Text("TIẾP TỤC THANH TOÁN"),
                 ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // ===== TỔNG TIỀN =====
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text("Tổng thanh toán:",
-                        style: TextStyle(fontSize: 16)),
-                    Text(
-                      "$totalPrice VND",
-                      style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Phương thức thanh toán",
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              const PaymentOption(
-                  title: "Thanh toán trực tiếp", icon: Icons.money),
-              const PaymentOption(
-                  title: "Thanh toán qua thẻ", icon: Icons.credit_card),
-              const PaymentOption(
-                  title: "Thanh toán qua app ngân hàng",
-                  icon: Icons.account_balance),
-
-              const SizedBox(height: 20),
-
-              // ===== NÚT THANH TOÁN =====
-              BlocConsumer<CheckoutBloc, CheckoutState>(
-                listener: (context, state) {
-                  if (state.isSuccess) {
-                    context.read<CartBloc>().add(ClearCartEvent());
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text("Thanh toán thành công 🎉")),
-                    );
-
-                    Navigator.pop(context);
-                  }
-                },
-                builder: (context, state) {
-                  return SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        padding:
-                        const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      onPressed: state.isLoading
-                          ? null
-                          : () {
-                        context
-                            .read<CheckoutBloc>()
-                            .add(ProcessCheckoutEvent());
-                      },
-                      child: state.isLoading
-                          ? const CircularProgressIndicator(
-                          color: Colors.white)
-                          : const Text(
-                        "XÁC NHẬN THANH TOÁN",
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  );
-                },
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ===== WIDGET CHỌN PHƯƠNG THỨC =====
-class PaymentOption extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const PaymentOption({
-    super.key,
-    required this.title,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: ListTile(
-        leading: Icon(icon, color: Colors.blueAccent),
-        title: Text(title),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       ),
     );
   }
