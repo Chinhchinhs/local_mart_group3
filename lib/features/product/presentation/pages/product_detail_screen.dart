@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../cart/domain/entities/cart_item_entity.dart';
 import '../../../cart/presentation/bloc/cart_bloc.dart';
 import '../../domain/entities/product_entity.dart';
+import '../../../cart/presentation/cart_screen.dart';
 import '../../../checkout/presentation/checkout_screen.dart';
 
 class ProductDetailScreen extends StatelessWidget {
@@ -37,11 +38,14 @@ class ProductDetailScreen extends StatelessWidget {
                         price: product.price,
                         imageUrl: product.imageUrl,
                       );
-                      context.read<CartBloc>().add(
-                        AddItemEvent(cartItem),
-                      );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Added to cart")),
+
+                      context.read<CartBloc>().add(AddItemEvent(cartItem));
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CartScreen(),
+                        ),
                       );
                     },
                     child: const Text("Add to Cart"),
@@ -78,7 +82,7 @@ class ProductDetailScreen extends StatelessWidget {
                   ),
                 ),
               ],
-            )
+            ),
           ],
         ),
       ),
