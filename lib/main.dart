@@ -4,6 +4,7 @@ import 'features/cart/domain/usecases/add_to_cart_usecase.dart';
 import 'features/cart/presentation/bloc/cart_bloc.dart';
 import 'features/cart/presentation/cart_screen.dart';
 
+
 void main() {
   runApp(const LocalMartApp());
 }

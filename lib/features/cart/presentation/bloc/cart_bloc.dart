@@ -13,7 +13,7 @@ class UpdateQuantityEvent extends CartEvent { final String itemId; final int new
 class ToggleSelectionModeEvent extends CartEvent {}
 class ToggleItemSelectionEvent extends CartEvent { final String itemId; ToggleItemSelectionEvent(this.itemId); }
 class DeleteSelectedItemsEvent extends CartEvent {}
-
+class ClearCartEvent extends CartEvent {}
 // --- 2. STATE ---
 class CartState {
   final List<CartItemEntity> items;
@@ -102,6 +102,14 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         items: remainingItems,
         isSelectionMode: false, // Xóa xong thì tự động thoát chế độ chọn
         selectedItemIds: [],
+        updateTrigger: DateTime.now().millisecondsSinceEpoch,
+      ));
+    });
+    on<ClearCartEvent>((event, emit) {
+      emit(state.copyWith(
+        items: [],
+        selectedItemIds: [],
+        isSelectionMode: false,
         updateTrigger: DateTime.now().millisecondsSinceEpoch,
       ));
     });
