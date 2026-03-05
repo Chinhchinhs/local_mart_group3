@@ -25,7 +25,7 @@ class ProductLocalDataSource {
           CREATE TABLE products(
             id TEXT PRIMARY KEY,
             name TEXT,
-            price INTEGER,
+            price REAL,
             description TEXT,
             imageUrl TEXT
           )
@@ -44,7 +44,7 @@ class ProductLocalDataSource {
     final db = await database;
     final result = await db.query('products');
 
-    return result.map((e) => ProductModel.fromJson(e)).toList();
+    return result.map((e) => ProductModel.fromMap(e)).toList();
   }
 
   /// 🔥 Lấy sản phẩm theo ID
@@ -58,7 +58,7 @@ class ProductLocalDataSource {
     );
 
     if (result.isNotEmpty) {
-      return ProductModel.fromJson(result.first);
+      return ProductModel.fromMap(result.first);
     }
 
     return null;
@@ -72,7 +72,7 @@ class ProductLocalDataSource {
 
     await db.insert(
       'products',
-      product.toJson(),
+      product.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
 

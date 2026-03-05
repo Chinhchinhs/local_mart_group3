@@ -53,28 +53,38 @@ class _ProductListScreenState extends State<ProductListScreen> {
           ),
         ],
       ),
-        body: BlocBuilder<ProductBloc, ProductState>(
-          builder: (context, state) {
+      body: BlocBuilder<ProductBloc, ProductState>(
+        builder: (context, state) {
 
-            if (state.isLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
+          if (state.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            if (state.products.isEmpty) {
-              return const Center(child: Text("Chưa có sản phẩm"));
-            }
+          if (state.products.isEmpty) {
+            return const Center(child: Text("Chưa có sản phẩm"));
+          }
 
-            return GridView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: state.products.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.75,
-              ),
-              itemBuilder: (context, index) {
-                final product = state.products[index];
+          return GridView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: state.products.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.75,
+            ),
+            itemBuilder: (context, index) {
+              final product = state.products[index];
 
-                return Card(
+              // 🔥 Đã bọc InkWell và Navigator.push ở đây
+              return InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ProductDetailScreen(product: product),
+                    ),
+                  );
+                },
+                child: Card(
                   child: Column(
                     children: [
                       Expanded(
@@ -85,15 +95,27 @@ class _ProductListScreenState extends State<ProductListScreen> {
                           const Icon(Icons.image, size: 50),
                         ),
                       ),
-                      Text(product.name),
-                      Text("${product.price} VND"),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          product.name,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text("${product.price} VND", style: const TextStyle(color: Colors.red)),
+                      ),
                     ],
                   ),
-                );
-              },
-            );
-          },
-        ),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
