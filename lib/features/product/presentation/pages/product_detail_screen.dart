@@ -7,7 +7,6 @@ import '../../../checkout/presentation/checkout_screen.dart';
 import '../../domain/entities/product_entity.dart';
 
 
-
 class ProductDetailScreen extends StatelessWidget {
   final ProductEntity product;
 
