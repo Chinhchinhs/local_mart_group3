@@ -38,29 +38,53 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
 
       final products = await getProducts();
 
-      emit(ProductState(
-        products: products,
+      // Dùng List.from() để ép Bloc nhận diện sự thay đổi
+      emit(state.copyWith(
+        products: List.from(products),
         isLoading: false,
       ));
     });
 
     /// ADD PRODUCT
     on<AddProductEvent>((event, emit) async {
-      print("ADDING PRODUCT: ${event.product.name}");
+      print("ĐANG THÊM SẢN PHẨM: ${event.product.name}");
+      emit(state.copyWith(isLoading: true)); // Bật xoay vòng vòng
 
-      await addProduct(event.product);
+      try {
+        // 1. Thêm sản phẩm vào Database
+        await addProduct(event.product);
+        print("THÊM VÀO DATABASE THÀNH CÔNG!");
 
-      print("ADD DONE");
+        // 2. Lấy lại danh sách mới nhất
+        final newProducts = await getProducts();
 
-      add(LoadProductsEvent());
+        // 3. Tắt xoay vòng vòng và cập nhật màn hình
+        emit(state.copyWith(
+          products: List.from(newProducts),
+          isLoading: false,
+        ));
+      } catch (e) {
+        // BẮT LỖI Ở ĐÂY!
+        print("❌ LỖI NGHIÊM TRỌNG KHI THÊM SẢN PHẨM: $e");
+
+        // Tắt xoay vòng vòng để màn hình không bị kẹt
+        emit(state.copyWith(isLoading: false));
+      }
     });
 
     /// DELETE PRODUCT
     on<DeleteProductEvent>((event, emit) async {
+      emit(state.copyWith(isLoading: true));
+
+      // 1. Xóa sản phẩm
       await deleteProduct(event.id);
 
-      // Reload lại danh sách
-      add(LoadProductsEvent());
+      // 2. Lấy lại danh sách và cập nhật
+      final newProducts = await getProducts();
+      emit(state.copyWith(
+        products: List.from(newProducts),
+        isLoading: false,
+      ));
     });
   }
 }

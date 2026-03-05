@@ -9,17 +9,20 @@ class ProductModel extends ProductEntity {
     required super.imageUrl,
   });
 
-  factory ProductModel.fromJson(Map<String, dynamic> json) {
+  // Chuyển từ dòng dữ liệu của SQLite (Map) sang Model
+  factory ProductModel.fromMap(Map<String, dynamic> map) {
     return ProductModel(
-      id: json['id'],
-      name: json['name'],
-      price: json['price'],
-      description: json['description'],
-      imageUrl: json['imageUrl'],
+      id: map['id'],
+      name: map['name'],
+      // Dùng (as num).toDouble() là "chân ái" tuyệt đối cho SQLite
+      price: (map['price'] as num).toDouble(),
+      description: map['description'],
+      imageUrl: map['imageUrl'],
     );
   }
 
-  Map<String, dynamic> toJson() {
+  // Hàm này giúp đóng gói dữ liệu để lưu xuống SQLite
+  Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
