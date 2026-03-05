@@ -1,11 +1,13 @@
+// features/product/presentation/pages/product_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../bloc/product_bloc.dart';
-import 'product_detail_screen.dart';
+import 'package:local_mart/features/product/presentation/widgets/product_image.dart';
+import '../../../cart/presentation/bloc/cart_bloc.dart';
 import '../../../cart/presentation/cart_screen.dart';
-import 'admin_action_screen.dart';
-import 'dart:io';
+import '../bloc/product_bloc.dart';
 import '../bloc/product_state.dart';
+import 'product_detail_screen.dart';
+import 'admin_action_screen.dart';
 
 class ProductListScreen extends StatefulWidget {
   final bool isDeleteMode;
@@ -20,7 +22,6 @@ class ProductListScreen extends StatefulWidget {
 }
 
 class _ProductListScreenState extends State<ProductListScreen> {
-
   @override
   void initState() {
     super.initState();
@@ -29,7 +30,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("LocalMart"),
@@ -40,14 +40,46 @@ class _ProductListScreenState extends State<ProductListScreen> {
           },
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_cart),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const CartScreen(),
-                ),
+          BlocBuilder<CartBloc, CartState>(
+            builder: (context, state) {
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.shopping_cart),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CartScreen()),
+                      );
+                    },
+                  ),
+                  if (state.items.isNotEmpty)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '${state.items.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
               );
             },
           ),
@@ -55,7 +87,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
       ),
       body: BlocBuilder<ProductBloc, ProductState>(
         builder: (context, state) {
-
           if (state.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -74,7 +105,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
             itemBuilder: (context, index) {
               final product = state.products[index];
 
-              // 🔥 Đã bọc InkWell và Navigator.push ở đây
               return InkWell(
                 onTap: () {
                   Navigator.push(
@@ -88,15 +118,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                   child: Column(
                     children: [
                       Expanded(
-                        child: Image.file(
-                          File(product.imageUrl),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                          const Icon(Icons.image, size: 50),
-                        ),
+                        child: ProductImage(imageUrl: product.imageUrl),
                       ),
                       Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
+                        padding: const EdgeInsets.only(top: 8.0, left: 4.0, right: 4.0),
                         child: Text(
                           product.name,
                           style: const TextStyle(fontWeight: FontWeight.bold),
@@ -106,7 +131,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                       ),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Text("${product.price} VND", style: const TextStyle(color: Colors.red)),
+                        child: Text(
+                          "${product.price} VND",
+                          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+                        ),
                       ),
                     ],
                   ),
