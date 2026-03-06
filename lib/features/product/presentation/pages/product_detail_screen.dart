@@ -7,12 +7,7 @@ import '../../../cart/presentation/cart_screen.dart';
 import '../../domain/entities/product_entity.dart';
 import '../../../../core/utils/currency_formatter.dart';
 
-
 class ProductDetailScreen extends StatefulWidget {
-=======
-
-class ProductDetailScreen extends StatelessWidget {
-
   final ProductEntity product;
 
   const ProductDetailScreen({super.key, required this.product});
@@ -208,7 +203,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 if (note.isNotEmpty) displayName += "\n📝 Ghi chú: $note";
                 
                 final cartItem = CartItemEntity(
-                  // ID duy nhất để tránh gộp các món có ghi chú khác nhau
                   id: widget.product.id + DateTime.now().millisecondsSinceEpoch.toString(),
                   name: displayName,
                   price: totalPrice,
