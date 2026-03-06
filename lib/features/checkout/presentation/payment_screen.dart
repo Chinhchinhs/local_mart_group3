@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../cart/domain/entities/cart_item_entity.dart';
-import '../../product/presentation/widgets/product_image.dart';
+import '../../cart/presentation/bloc/cart_bloc.dart';
 import 'invoice_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -24,6 +25,7 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
+
   String selectedMethod = "cash";
 
   @override
@@ -32,157 +34,91 @@ class _PaymentScreenState extends State<PaymentScreen> {
       appBar: AppBar(
         title: const Text("Phương thức thanh toán"),
         backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Thông tin giao hàng & Tổng tiền
-              const Text("Thông tin giao hàng",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blueAccent.withOpacity(0.2)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Tên: ${widget.name}", style: const TextStyle(fontSize: 15)),
-                    Text("SĐT: ${widget.phone}", style: const TextStyle(fontSize: 15)),
-                    Text("Địa chỉ: ${widget.address}", style: const TextStyle(fontSize: 15)),
-                    const Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text("Tổng thanh toán:",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${widget.totalPrice.toStringAsFixed(0)} VND",
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red,
-                                fontSize: 16)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
 
-              const SizedBox(height: 20),
+            const Text("Thông tin giao hàng",
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16)),
 
-              // Danh sách sản phẩm (thu nhỏ)
-              const Text("Sản phẩm đã chọn",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 10),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: widget.items.length,
-                itemBuilder: (context, index) {
-                  final item = widget.items[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      dense: true,
-                      leading: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: ProductImage(
-                          imageUrl: item.imageUrl,
-                          width: 40,
-                          height: 40,
-                        ),
+            const SizedBox(height: 10),
+
+            Text("Tên: ${widget.name}"),
+            Text("SĐT: ${widget.phone}"),
+            Text("Địa chỉ: ${widget.address}"),
+
+            const SizedBox(height: 20),
+
+            const Text("Chọn phương thức",
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16)),
+
+            RadioListTile(
+              title: const Text("Thanh toán khi nhận hàng"),
+              value: "cash",
+              groupValue: selectedMethod,
+              onChanged: (value) {
+                setState(() {
+                  selectedMethod = value!;
+                });
+              },
+            ),
+
+            RadioListTile(
+              title: const Text("Thanh toán qua thẻ"),
+              value: "card",
+              groupValue: selectedMethod,
+              onChanged: (value) {
+                setState(() {
+                  selectedMethod = value!;
+                });
+              },
+            ),
+
+            RadioListTile(
+              title: const Text("Chuyển khoản ngân hàng"),
+              value: "bank",
+              groupValue: selectedMethod,
+              onChanged: (value) {
+                setState(() {
+                  selectedMethod = value!;
+                });
+              },
+            ),
+
+            const Spacer(),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => InvoiceScreen(
+                        items: widget.items,
+                        totalPrice: widget.totalPrice,
+                        name: widget.name,
+                        phone: widget.phone,
+                        address: widget.address,
+                        paymentMethod: selectedMethod,
                       ),
-                      title: Text(item.name, style: const TextStyle(fontSize: 14)),
-                      trailing: Text("x${item.quantity}",
-                          style: const TextStyle(color: Colors.grey)),
                     ),
                   );
                 },
+                child: const Text("THANH TOÁN"),
               ),
-
-              const SizedBox(height: 20),
-
-              // Chọn phương thức thanh toán
-              const Text("Chọn phương thức thanh toán",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 10),
-              _buildPaymentOption(
-                title: "Thanh toán khi nhận hàng (COD)",
-                value: "cash",
-                icon: Icons.money,
-              ),
-              _buildPaymentOption(
-                title: "Thanh toán qua thẻ",
-                value: "card",
-                icon: Icons.credit_card,
-              ),
-              _buildPaymentOption(
-                title: "Chuyển khoản ngân hàng",
-                value: "bank",
-                icon: Icons.account_balance,
-              ),
-
-              const SizedBox(height: 30),
-
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => InvoiceScreen(
-                          items: widget.items,
-                          totalPrice: widget.totalPrice,
-                          name: widget.name,
-                          phone: widget.phone,
-                          address: widget.address,
-                          paymentMethod: selectedMethod,
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text("XÁC NHẬN THANH TOÁN",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildPaymentOption({
-    required String title,
-    required String value,
-    required IconData icon,
-  }) {
-    return RadioListTile(
-      secondary: Icon(icon, color: Colors.blueAccent),
-      title: Text(title),
-      value: value,
-      groupValue: selectedMethod,
-      onChanged: (newValue) {
-        setState(() {
-          selectedMethod = newValue!;
-        });
-      },
     );
   }
 }
