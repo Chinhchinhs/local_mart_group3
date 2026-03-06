@@ -6,20 +6,18 @@ import '../models/product_model.dart';
 class ProductLocalDataSource {
   static Database? _database;
 
-  /// 🔥 Lấy database instance
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB();
     return _database!;
   }
 
-  /// 🔥 Khởi tạo database
   Future<Database> _initDB() async {
     final path = join(await getDatabasesPath(), 'products.db');
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 4, 
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products(
@@ -27,67 +25,64 @@ class ProductLocalDataSource {
             name TEXT,
             price REAL,
             description TEXT,
-            imageUrl TEXT
+            imageUrl TEXT,
+            sideDishes TEXT
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 4) {
+          await db.execute('DROP TABLE IF EXISTS products');
+          await db.execute('''
+            CREATE TABLE products(
+              id TEXT PRIMARY KEY,
+              name TEXT,
+              price REAL,
+              description TEXT,
+              imageUrl TEXT,
+              sideDishes TEXT
+            )
+          ''');
+        }
       },
     );
   }
 
-  /// 🔥 Gọi trong main() để init trước
   Future<void> init() async {
     await database;
   }
 
-  /// 🔥 Lấy tất cả sản phẩm
   Future<List<ProductModel>> getProducts() async {
     final db = await database;
     final result = await db.query('products');
-
     return result.map((e) => ProductModel.fromMap(e)).toList();
   }
 
-  /// 🔥 Lấy sản phẩm theo ID
+  // BỔ SUNG LẠI HÀM NÀY ĐỂ HẾT LỖI BUILD
   Future<ProductModel?> getProductById(String id) async {
     final db = await database;
-
-    final result = await db.query(
-      'products',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-
-    if (result.isNotEmpty) {
-      return ProductModel.fromMap(result.first);
-    }
-
+    final result = await db.query('products', where: 'id = ?', whereArgs: [id]);
+    if (result.isNotEmpty) return ProductModel.fromMap(result.first);
     return null;
   }
 
-  /// 🔥 Thêm sản phẩm
   Future<void> addProduct(ProductModel product) async {
     final db = await database;
-
-    print("ADDING PRODUCT: ${product.name}");
+    final data = product.toMap();
+    
+    print("--- [SQLITE] ĐANG LƯU MÓN: ${product.name} ---");
 
     await db.insert(
-      'products',
-      product.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      'products', 
+      data, 
+      conflictAlgorithm: ConflictAlgorithm.replace
     );
-
-    final all = await db.query('products');
-    print("TOTAL PRODUCTS IN DB: ${all.length}");
+    
+    print("--- [SQLITE] LƯU THÀNH CÔNG ---");
   }
 
-  /// 🔥 Xóa sản phẩm
   Future<void> deleteProduct(String id) async {
     final db = await database;
-
-    await db.delete(
-      'products',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete('products', where: 'id = ?', whereArgs: [id]);
   }
 }

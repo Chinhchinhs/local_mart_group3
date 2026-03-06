@@ -1,6 +1,7 @@
+import 'package:equatable/equatable.dart';
 import '../../domain/entities/product_entity.dart';
 
-class ProductState {
+class ProductState extends Equatable {
   final List<ProductEntity> products;
   final bool isLoading;
 
@@ -18,4 +19,7 @@ class ProductState {
       isLoading: isLoading ?? this.isLoading,
     );
   }
+
+  @override
+  List<Object?> get props => [products, isLoading];
 }
