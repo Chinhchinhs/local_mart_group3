@@ -40,8 +40,8 @@ class _AdminDeleteDetailScreenState extends State<AdminDeleteDetailScreen> {
       );
     });
 
-    // 2. Gửi lệnh cập nhật xuống Bloc để lưu vĩnh viễn vào SQLite
-    context.read<ProductBloc>().add(UpdateProductEvent(currentProduct));
+    // 2. Gửi lệnh cập nhật xuống Bloc (Sử dụng AddProductEvent để thay thế dữ liệu cũ trong SQLite)
+    context.read<ProductBloc>().add(AddProductEvent(currentProduct));
     
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Đã xóa món phụ thành công"), backgroundColor: Colors.orange, duration: Duration(milliseconds: 500)),

@@ -18,7 +18,8 @@ dependencies:
   sqflite: ^2.3.0
   path_provider: ^2.1.2
   path: ^1.9.0
-  intl: ^0.18.1 # Thêm intl để format tiền tệ
+  intl: ^0.18.1
+  http: ^1.1.0 # Thêm http để gọi API
 
 dev_dependencies:
   flutter_test:
