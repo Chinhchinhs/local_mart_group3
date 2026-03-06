@@ -22,7 +22,6 @@ class SideDishEntity extends Equatable {
     return SideDishEntity(
       id: map['id'],
       name: map['name'],
-      // Ép kiểu num sang double để tránh lỗi int/double trong SQLite/JSON
       price: (map['price'] as num).toDouble(),
     );
   }
@@ -34,6 +33,7 @@ class ProductEntity extends Equatable {
   final double price;
   final String description;
   final String imageUrl;
+  final String category; // Để phân loại món ăn (Seafood, Beef, v.v.)
   final List<SideDishEntity> sideDishes;
 
   const ProductEntity({
@@ -42,9 +42,26 @@ class ProductEntity extends Equatable {
     required this.price,
     required this.description,
     required this.imageUrl,
+    this.category = "General",
     this.sideDishes = const [],
   });
 
+  // Hữu ích khi cần thay đổi giá hoặc món phụ sau khi nhận dữ liệu từ API
+  ProductEntity copyWith({
+    double? price,
+    List<SideDishEntity>? sideDishes,
+  }) {
+    return ProductEntity(
+      id: id,
+      name: name,
+      price: price ?? this.price,
+      description: description,
+      imageUrl: imageUrl,
+      category: category,
+      sideDishes: sideDishes ?? this.sideDishes,
+    );
+  }
+
   @override
-  List<Object?> get props => [id, name, price, description, imageUrl, sideDishes];
+  List<Object?> get props => [id, name, price, description, imageUrl, category, sideDishes];
 }

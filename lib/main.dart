@@ -1,25 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
 
-// --- Tầng Data (Repository Implementation) ---
+// --- Tầng Data ---
 import 'features/auth/data/datasources/auth_database_helper.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/cart/data/datasources/cart_database_helper.dart';
 import 'features/cart/data/datasources/cart_local_datasource.dart';
 import 'features/cart/domain/repositories/cart_repository_impl.dart';
 import 'features/product/data/datasources/product_local_datasource.dart';
+import 'features/product/data/datasources/product_remote_data_source.dart';
 import 'features/product/data/repositories/product_repository_impl.dart';
 
-// --- Tầng Domain (UseCases) ---
+// --- Tầng Domain ---
 import 'features/auth/domain/usecases/login_usecase.dart';
 import 'features/cart/domain/usecases/add_to_cart_usecase.dart';
 import 'features/product/domain/usecases/get_products_usecase.dart';
 import 'features/product/domain/usecases/add_product_usecase.dart';
 import 'features/product/domain/usecases/delete_product_usecase.dart';
+import 'features/product/domain/usecases/get_remote_products_usecase.dart';
+import 'features/product/domain/usecases/get_remote_categories_usecase.dart';
 
-// --- Tầng Presentation (Bloc & UI) ---
+// --- Tầng Presentation ---
 import 'features/auth/presentation/bloc/auth_bloc.dart';
-import 'features/auth/presentation/pages/login_screen.dart';
 import 'features/cart/presentation/bloc/cart_bloc.dart';
 import 'features/product/presentation/bloc/product_bloc.dart';
 import 'features/product/presentation/pages/product_list_screen.dart';
@@ -27,16 +30,21 @@ import 'features/product/presentation/pages/product_list_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Khởi tạo Database & Repository cho Auth
+  // 1. Khởi tạo Auth
   final authRepo = AuthRepositoryImpl(AuthDatabaseHelper.instance);
   
-  // 2. Khởi tạo Database & Repository cho Cart
+  // 2. Khởi tạo Cart
   final cartRepository = CartRepositoryImpl(CartLocalDataSourceImpl(CartDatabaseHelper.instance));
 
-  // 3. Khởi tạo Database & Repository cho Product
-  final productDataSource = ProductLocalDataSource();
-  await productDataSource.init();
-  final productRepository = ProductRepositoryImpl(productDataSource);
+  // 3. Khởi tạo Product
+  final productLocalDataSource = ProductLocalDataSource();
+  await productLocalDataSource.init();
+  final productRemoteDataSource = ProductRemoteDataSourceImpl(client: http.Client());
+  
+  final productRepository = ProductRepositoryImpl(
+    dataSource: productLocalDataSource,
+    remoteDataSource: productRemoteDataSource,
+  );
 
   runApp(
     MultiBlocProvider(
@@ -49,10 +57,14 @@ void main() async {
         ),
         BlocProvider(
           create: (_) => ProductBloc(
-            GetProductsUseCase(productRepository),
-            AddProductUseCase(productRepository),
-            DeleteProductUseCase(productRepository),
-          )..add(LoadProductsEvent()),
+            getProducts: GetProductsUseCase(productRepository),
+            addProduct: AddProductUseCase(productRepository),
+            deleteProduct: DeleteProductUseCase(productRepository),
+            getRemoteProducts: GetRemoteProductsUseCase(productRepository),
+            getRemoteCategories: GetRemoteCategoriesUseCase(productRepository),
+          )
+          ..add(FetchRemoteCategoriesEvent()) // Lấy danh mục & Món ăn API
+          ..add(LoadProductsEvent()),        // Lấy món ăn Local của Admin
         ),
       ],
       child: const LocalMartApp(),
@@ -73,7 +85,6 @@ class LocalMartApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Roboto',
       ),
-      // Mặc định vào App là trang chủ (ProductList), nếu cần login thì bấm icon Profile
       home: const ProductListScreen(),
     );
   }
