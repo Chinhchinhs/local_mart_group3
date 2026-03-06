@@ -26,6 +26,7 @@ class ProductRepositoryImpl implements ProductRepository {
       price: product.price,
       description: product.description,
       imageUrl: product.imageUrl,
+      sideDishes: product.sideDishes, // Đã thêm: Lưu món phụ vào database
     );
 
     await dataSource.addProduct(model);

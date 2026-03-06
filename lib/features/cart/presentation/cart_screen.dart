@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:local_mart/core/utils/currency_formatter.dart';
+import 'package:local_mart/features/product/presentation/widgets/product_image.dart';
 import '../domain/entities/cart_item_entity.dart';
 import 'bloc/cart_bloc.dart';
 import '../../checkout/presentation/checkout_screen.dart';
@@ -10,20 +12,20 @@ class CartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Giỏ hàng LocalMart', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Giỏ hàng', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
         centerTitle: true,
+        backgroundColor: Colors.white,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           BlocBuilder<CartBloc, CartState>(
             builder: (context, state) {
               if (state.items.isEmpty) return const SizedBox.shrink();
               return IconButton(
-                icon: Icon(state.isSelectionMode ? Icons.close : Icons.checklist_rtl),
-                tooltip: state.isSelectionMode ? 'Hủy chọn' : 'Chọn nhiều để xóa',
-                onPressed: () {
-                  context.read<CartBloc>().add(ToggleSelectionModeEvent());
-                },
+                icon: Icon(state.isSelectionMode ? Icons.close : Icons.checklist_rtl, color: Colors.blue),
+                onPressed: () => context.read<CartBloc>().add(ToggleSelectionModeEvent()),
               );
             },
           )
@@ -32,15 +34,24 @@ class CartScreen extends StatelessWidget {
       body: BlocBuilder<CartBloc, CartState>(
         builder: (context, state) {
           if (state.items.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.shopping_bag_outlined, size: 80),
-                  SizedBox(height: 16),
-                  Text('Giỏ hàng của bạn đang trống', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-                  Text('Hãy thêm sản phẩm để tiếp tục mua sắm nhé!', style: TextStyle(fontSize: 14)),
+                  Icon(Icons.shopping_basket_outlined, size: 100, color: Colors.grey[300]),
+                  const SizedBox(height: 20),
+                  const Text('Giỏ hàng của bạn đang trống', 
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.grey)),
+                  const SizedBox(height: 30),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueAccent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                    ),
+                    child: const Text('TIẾP TỤC MUA SẮM', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
                 ],
               ),
             );
@@ -51,50 +62,74 @@ class CartScreen extends StatelessWidget {
             itemCount: state.items.length,
             itemBuilder: (context, index) {
               final item = state.items[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+              final isSelected = state.selectedItemIds.contains(item.id);
+
+              return Dismissible(
+                key: Key('cart_${item.id}'),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: const Icon(Icons.delete_sweep, color: Colors.white, size: 30),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: ListTile(
-                    leading: state.isSelectionMode
-                        ? Checkbox(
-                      value: state.selectedItemIds.contains(item.id),
-                      onChanged: (bool? value) {
-                        context.read<CartBloc>().add(ToggleItemSelectionEvent(item.id));
-                      },
-                    )
-                        : Container(
-                      padding: const EdgeInsets.all(8),
-                      child: const Icon(Icons.fastfood, size: 36),
+                onDismissed: (direction) {
+                  _handleDeleteItem(context, item);
+                },
+                child: Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: ListTile(
+                      leading: state.isSelectionMode
+                          ? Checkbox(
+                              value: isSelected,
+                              activeColor: Colors.blue,
+                              onChanged: (_) => context.read<CartBloc>().add(ToggleItemSelectionEvent(item.id)),
+                            )
+                          : ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: SizedBox(
+                                width: 60,
+                                height: 60,
+                                child: ProductImage(imageUrl: item.imageUrl, fit: BoxFit.cover),
+                              ),
+                            ),
+                      title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 4),
+                          Text('${CurrencyFormatter.formatVND(item.price)} VND', 
+                            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      trailing: state.isSelectionMode
+                          ? null
+                          : Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _qtyBtn(Icons.remove, () => _updateQty(context, item, -1)),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                  _qtyBtn(Icons.add, () => _updateQty(context, item, 1)),
+                                ],
+                              ),
+                            ),
                     ),
-                    title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text('Giá: ${item.price} VND', style: const TextStyle(fontWeight: FontWeight.w500)),
-                    ),
-                    trailing: state.isSelectionMode
-                        ? null
-                        : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove),
-                          onPressed: () => context.read<CartBloc>().add(UpdateQuantityEvent(item.id, item.quantity - 1)),
-                        ),
-                        Text('${item.quantity}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed: () => context.read<CartBloc>().add(UpdateQuantityEvent(item.id, item.quantity + 1)),
-                        ),
-                      ],
-                    ),
-                    onTap: state.isSelectionMode
-                        ? () => context.read<CartBloc>().add(ToggleItemSelectionEvent(item.id))
-                        : null,
                   ),
                 ),
               );
@@ -104,93 +139,124 @@ class CartScreen extends StatelessWidget {
       ),
       bottomNavigationBar: BlocBuilder<CartBloc, CartState>(
         builder: (context, state) {
-          // Nếu giỏ hàng trống, ta có thể ẩn hẳn thanh BottomBar hoặc giữ lại ,
+          if (state.items.isEmpty) return const SizedBox.shrink();
+
           return Container(
-            decoration: BoxDecoration(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, -5),
-                )
-              ],
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 15, offset: Offset(0, -5))],
             ),
             child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-
-                child: state.isSelectionMode
-                // trạng thái đang chọn để xóa
-                    ? SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: state.selectedItemIds.isEmpty ? Colors.grey.shade400 : Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                    icon: const Icon(Icons.delete_forever, size: 24),
-                    label: Text('XÓA ${state.selectedItemIds.length} MÓN ĐÃ CHỌN', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    onPressed: state.selectedItemIds.isEmpty
-                        ? null
-                        : () => context.read<CartBloc>().add(DeleteSelectedItemsEvent()),
-                  ),
-                )
-                    : Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: state.isSelectionMode
+                  ? ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: state.selectedItemIds.isEmpty ? Colors.grey[300] : Colors.red,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      onPressed: state.selectedItemIds.isEmpty 
+                          ? null 
+                          : () => context.read<CartBloc>().add(DeleteSelectedItemsEvent()),
+                      child: Text('XÓA ${state.selectedItemIds.length} SẢN PHẨM', 
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    )
+                  : Row(
                       children: [
-                        const Text('Tổng thanh toán:', style: TextStyle(fontSize: 14, color: Colors.grey)),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${state.totalPrice} VND',
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Tổng thanh toán', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                              Text(
+                                '${CurrencyFormatter.formatVND(state.totalPrice)} VND',
+                                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blueAccent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              elevation: 5,
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => CheckoutScreen(items: state.items, totalPrice: state.totalPrice),
+                                ),
+                              );
+                            },
+                            child: const Text('MUA HÀNG', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                          ),
                         ),
                       ],
                     ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 3,
-                      ),
-                      onPressed: state.items.isEmpty
-                          ? null
-                          : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => CheckoutScreen(
-                              items: state.items,
-                              totalPrice: state.totalPrice,
-                            ),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        state.items.isEmpty
-                            ? "CHƯA CÓ SẢN PHẨM"
-                            : "MUA HÀNG",
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    )
-                  ],
-                ),
-              ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _qtyBtn(IconData icon, VoidCallback onPressed) {
+    return IconButton(
+      icon: Icon(icon, size: 18),
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+    );
+  }
+
+  void _updateQty(BuildContext context, CartItemEntity item, int delta) {
+    if (item.quantity + delta <= 0) {
+      _showDeleteConfirm(context, item);
+    } else {
+      context.read<CartBloc>().add(UpdateQuantityEvent(item.id, item.quantity + delta));
+    }
+  }
+
+  void _handleDeleteItem(BuildContext context, CartItemEntity item) {
+    context.read<CartBloc>().add(RemoveItemEvent(item.id));
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đã xóa ${item.name}'),
+        action: SnackBarAction(
+          label: 'HOÀN TÁC',
+          textColor: Colors.yellow,
+          onPressed: () => context.read<CartBloc>().add(AddItemEvent(item)),
+        ),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  void _showDeleteConfirm(BuildContext context, CartItemEntity item) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Xác nhận xóa?'),
+        content: Text('Bạn có chắc muốn bỏ ${item.name} khỏi giỏ hàng?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('KHÔNG')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _handleDeleteItem(context, item);
+            },
+            child: const Text('XÓA', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
