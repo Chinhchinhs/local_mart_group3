@@ -22,6 +22,13 @@ class InvoiceScreen extends StatelessWidget {
     required this.paymentMethod,
   });
 
+  String _formatCurrency(double amount) {
+    return amount.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]}.',
+        );
+  }
+
   String _getPaymentMethodText(String method) {
     switch (method) {
       case 'cash':
@@ -48,7 +55,6 @@ class InvoiceScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Trạng thái thành công
             const Icon(Icons.check_circle_outline, color: Colors.green, size: 80),
             const SizedBox(height: 10),
             const Text(
@@ -58,7 +64,6 @@ class InvoiceScreen extends StatelessWidget {
             const Text("Cảm ơn bạn đã mua sắm tại Local Mart"),
             const Divider(height: 40),
 
-            // Thông tin khách hàng
             _buildSectionTitle("Thông tin khách hàng"),
             Card(
               elevation: 0,
@@ -78,7 +83,6 @@ class InvoiceScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Chi tiết sản phẩm
             _buildSectionTitle("Chi tiết đơn hàng"),
             ListView.builder(
               shrinkWrap: true,
@@ -104,7 +108,7 @@ class InvoiceScreen extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Text("${(item.price * item.quantity).toStringAsFixed(0)} VND"),
+                      Text("${_formatCurrency(item.price * item.quantity)} VND"),
                     ],
                   ),
                 );
@@ -112,7 +116,6 @@ class InvoiceScreen extends StatelessWidget {
             ),
             const Divider(height: 30),
 
-            // Thanh toán
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -126,14 +129,13 @@ class InvoiceScreen extends StatelessWidget {
               children: [
                 const Text("Tổng thanh toán:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 Text(
-                  "${totalPrice.toStringAsFixed(0)} VND",
+                  "${_formatCurrency(totalPrice)} VND",
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red),
                 ),
               ],
             ),
             const SizedBox(height: 40),
 
-            // Nút hoàn tất
             SizedBox(
               width: double.infinity,
               height: 50,

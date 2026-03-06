@@ -30,6 +30,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
+  String _formatCurrency(double amount) {
+    return amount.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]}.',
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,7 +105,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text("SL: ${item.quantity}"),
                       trailing: Text(
-                        "${(item.price * item.quantity).toStringAsFixed(0)} VND",
+                        "${_formatCurrency(item.price * item.quantity)} VND",
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -116,7 +123,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text("Tổng tiền:", style: TextStyle(fontSize: 16)),
-                    Text("${widget.totalPrice.toStringAsFixed(0)} VND",
+                    Text("${_formatCurrency(widget.totalPrice)} VND",
                         style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,

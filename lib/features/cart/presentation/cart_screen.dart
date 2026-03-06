@@ -142,7 +142,7 @@ class CartScreen extends StatelessWidget {
           if (state.items.isEmpty) return const SizedBox.shrink();
 
           return Container(
-            padding: const EdgeInsegit ts.all(24),
+            padding: const EdgeInsets.all(24),
             decoration: const BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(30)),

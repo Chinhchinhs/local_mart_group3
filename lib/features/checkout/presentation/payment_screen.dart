@@ -26,6 +26,13 @@ class PaymentScreen extends StatefulWidget {
 class _PaymentScreenState extends State<PaymentScreen> {
   String selectedMethod = "cash";
 
+  String _formatCurrency(double amount) {
+    return amount.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]}.',
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -64,7 +71,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       children: [
                         const Text("Tổng thanh toán:",
                             style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${widget.totalPrice.toStringAsFixed(0)} VND",
+                        Text("${_formatCurrency(widget.totalPrice)} VND",
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.red,
