@@ -17,6 +17,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final priceCtrl = TextEditingController();
   final descCtrl = TextEditingController();
   
+  // SideDishEntity nằm trong product_entity.dart đã được import ở trên
   List<SideDishEntity> sideDishes = [];
   final sideDishNameCtrl = TextEditingController();
   final sideDishPriceCtrl = TextEditingController();
@@ -123,7 +124,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   price: double.tryParse(priceCtrl.text) ?? 0.0,
                   description: descCtrl.text,
                   imageUrl: selectedImage!.path,
-                  sideDishes: sideDishes,
+                  sideDishes: List.from(sideDishes),
                 );
 
                 context.read<ProductBloc>().add(AddProductEvent(product));

@@ -12,7 +12,7 @@ class CartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50], // Nền xám nhạt cho app chuyên nghiệp
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Giỏ hàng', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
         centerTitle: true,
@@ -69,7 +69,7 @@ class CartScreen extends StatelessWidget {
                 direction: DismissDirection.endToStart,
                 background: Container(
                   alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20), // ĐÃ SỬA: Dùng EdgeInsets.only
+                  padding: const EdgeInsets.only(right: 20),
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
                     color: Colors.redAccent,
@@ -142,7 +142,7 @@ class CartScreen extends StatelessWidget {
           if (state.items.isEmpty) return const SizedBox.shrink();
 
           return Container(
-            padding: const EdgeInsegit ts.all(24),
+            padding: const EdgeInsets.all(24),
             decoration: const BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
