@@ -17,13 +17,12 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  // Danh sách các món phụ đã được chọn
   late List<Map<String, dynamic>> selectedSideDishes;
+  final noteController = TextEditingController(); // Controller cho Ghi chú
 
   @override
   void initState() {
     super.initState();
-    // Khởi tạo danh sách món phụ từ dữ liệu của sản phẩm
     selectedSideDishes = widget.product.sideDishes.map((dish) {
       return {
         "id": dish.id,
@@ -76,6 +75,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ],
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 120), // Tránh đè lên BottomSheet
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -111,7 +111,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 8),
                   Text(widget.product.description, style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5)),
                   
-                  // HIỂN THỊ MÓN PHỤ NẾU CÓ
+                  // PHẦN MÓN PHỤ
                   if (selectedSideDishes.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     const Text("Món ăn kèm (Side dishes)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -136,11 +136,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         );
                       },
                     ),
-                  ] else ...[
-                    const SizedBox(height: 24),
-                    const Text("(Không có món phụ kèm theo)", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
                   ],
-                  const SizedBox(height: 100),
+
+                  // PHẦN GHI CHÚ CHO QUÁN
+                  const SizedBox(height: 30),
+                  const Text("Ghi chú cho quán", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: noteController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      hintText: "VD: Không ăn hành, cho ít cay...",
+                      hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.orange, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -172,14 +188,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () {
+                // 1. Lấy danh sách món phụ đã chọn
                 String dishNames = selectedSideDishes
                     .where((e) => e["selected"] == true)
                     .map((e) => e["name"])
                     .join(", ");
                 
+                // 2. Lấy ghi chú của khách
+                String note = noteController.text.trim();
+                
+                // 3. Xây dựng tên hiển thị mới (Tên món + Món phụ + Ghi chú)
+                String displayName = widget.product.name;
+                if (dishNames.isNotEmpty) displayName += " ($dishNames)";
+                if (note.isNotEmpty) displayName += "\n📝 Ghi chú: $note";
+                
                 final cartItem = CartItemEntity(
-                  id: widget.product.id + (dishNames.isNotEmpty ? "_$dishNames" : ""),
-                  name: widget.product.name + (dishNames.isNotEmpty ? " ($dishNames)" : ""),
+                  // ID duy nhất để tránh gộp các món có ghi chú khác nhau
+                  id: widget.product.id + DateTime.now().millisecondsSinceEpoch.toString(),
+                  name: displayName,
                   price: totalPrice,
                   imageUrl: widget.product.imageUrl,
                 );
@@ -187,7 +213,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 context.read<CartBloc>().add(AddItemEvent(cartItem));
                 
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Đã thêm vào giỏ hàng!"), backgroundColor: Colors.green),
+                  const SnackBar(content: Text("Đã thêm vào giỏ hàng!"), backgroundColor: Colors.green, duration: Duration(seconds: 1)),
                 );
               },
               child: const Text("THÊM VÀO GIỎ", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
