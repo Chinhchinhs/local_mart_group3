@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 
-// --- Tầng Data ---
+// --- Data ---
 import 'features/auth/data/datasources/auth_database_helper.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/cart/data/datasources/cart_database_helper.dart';
@@ -12,7 +12,7 @@ import 'features/product/data/datasources/product_local_datasource.dart';
 import 'features/product/data/datasources/product_remote_data_source.dart';
 import 'features/product/data/repositories/product_repository_impl.dart';
 
-// --- Tầng Domain ---
+// --- Domain ---
 import 'features/auth/domain/usecases/login_usecase.dart';
 import 'features/cart/domain/usecases/add_to_cart_usecase.dart';
 import 'features/product/domain/usecases/get_products_usecase.dart';
@@ -21,7 +21,7 @@ import 'features/product/domain/usecases/delete_product_usecase.dart';
 import 'features/product/domain/usecases/get_remote_products_usecase.dart';
 import 'features/product/domain/usecases/get_remote_categories_usecase.dart';
 
-// --- Tầng Presentation ---
+// --- Presentation ---
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/cart/presentation/bloc/cart_bloc.dart';
 import 'features/product/presentation/bloc/product_bloc.dart';
@@ -42,8 +42,8 @@ void main() async {
   final productRemoteDataSource = ProductRemoteDataSourceImpl(client: http.Client());
   
   final productRepository = ProductRepositoryImpl(
-    dataSource: productLocalDataSource,
-    remoteDataSource: productRemoteDataSource,
+    productLocalDataSource,
+    productRemoteDataSource,
   );
 
   runApp(
@@ -63,8 +63,8 @@ void main() async {
             getRemoteProducts: GetRemoteProductsUseCase(productRepository),
             getRemoteCategories: GetRemoteCategoriesUseCase(productRepository),
           )
-          ..add(FetchRemoteCategoriesEvent()) // Lấy danh mục & Món ăn API
-          ..add(LoadProductsEvent()),        // Lấy món ăn Local của Admin
+          ..add(FetchRemoteCategoriesEvent()) 
+          ..add(LoadProductsEvent()),
         ),
       ],
       child: const LocalMartApp(),

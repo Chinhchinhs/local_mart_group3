@@ -1,13 +1,12 @@
+import 'dart:io'; // CHỈ THÊM DÒNG NÀY ĐỂ HẾT LỖI BUILD
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_mart/core/utils/currency_formatter.dart';
-import 'package:local_mart/features/product/presentation/widgets/product_image.dart';
 import 'package:local_mart/features/product/presentation/bloc/product_bloc.dart';
 import 'package:local_mart/features/product/presentation/bloc/product_state.dart';
 import '../domain/entities/cart_item_entity.dart';
 import 'bloc/cart_bloc.dart';
 import '../../checkout/presentation/checkout_screen.dart';
-import 'pages/edit_cart_item_screen.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -52,9 +51,9 @@ class CartScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+                  border: Border.all(color: Colors.grey.withOpacity(0.1)),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 5))
+                    BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 5))
                   ],
                 ),
                 child: ListTile(
@@ -62,8 +61,6 @@ class CartScreen extends StatelessWidget {
                   onTap: () {
                     if (state.isSelectionMode) {
                       context.read<CartBloc>().add(ToggleItemSelectionEvent(item.id));
-                    } else {
-                      _navigateToEdit(context, item);
                     }
                   },
                   leading: state.isSelectionMode
@@ -75,14 +72,14 @@ class CartScreen extends StatelessWidget {
                       )
                     : ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: SizedBox(width: 70, height: 70, child: ProductImage(imageUrl: item.imageUrl, fit: BoxFit.cover)),
+                        child: SizedBox(width: 70, height: 70, child: Image.file(File(item.imageUrl), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.fastfood))),
                       ),
                   title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 4),
-                      Text(CurrencyFormatter.formatVND(item.price), 
+                      Text(CurrencyFormatter.format(item.price), 
                         style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                       if (item.selectedSideDishes.isNotEmpty)
                         Padding(
@@ -147,19 +144,22 @@ class CartScreen extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5))],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
           ),
           child: SafeArea(
             child: state.isSelectionMode
-              ? ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: state.selectedItemIds.isEmpty ? Colors.grey : Colors.red,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: state.selectedItemIds.isEmpty ? null : () => context.read<CartBloc>().add(DeleteSelectedItemsEvent()),
-                  child: Text("XÓA ${state.selectedItemIds.length} MÓN ĐÃ CHỌN", 
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              ? SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: state.selectedItemIds.isEmpty ? Colors.grey : Colors.red,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: state.selectedItemIds.isEmpty ? null : () => context.read<CartBloc>().add(DeleteSelectedItemsEvent()),
+                    child: Text("XÓA ${state.selectedItemIds.length} MÓN ĐÃ CHỌN", 
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                  )
                 )
               : Row(
                   children: [
@@ -169,7 +169,7 @@ class CartScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text("Tổng cộng", style: TextStyle(color: Colors.grey)),
-                          Text(CurrencyFormatter.formatVND(state.totalPrice), 
+                          Text(CurrencyFormatter.format(state.totalPrice), 
                             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red)),
                         ],
                       ),
@@ -201,25 +201,6 @@ class CartScreen extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       child: Padding(padding: const EdgeInsets.all(4), child: Icon(icon, size: 16, color: Colors.orange)),
     );
-  }
-
-  void _navigateToEdit(BuildContext context, CartItemEntity item) {
-    // Lấy danh sách món ăn từ ProductBloc để tìm món gốc và lấy danh sách Topping khả dụng
-    final productState = context.read<ProductBloc>().state;
-    
-    // Tìm trong danh sách Remote hoặc Local xem món này là món nào
-    final allProducts = [...productState.remoteProducts, ...productState.localProducts];
-    final originalProduct = allProducts.firstWhere(
-      (p) => p.name == item.name, // Tìm theo tên vì ID có thể đã bị thay đổi khi tách món
-      orElse: () => productState.remoteProducts.isNotEmpty ? productState.remoteProducts.first : allProducts.first
-    );
-
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => EditCartItemScreen(
-        item: item, 
-        allAvailableSideDishes: originalProduct.sideDishes
-      )
-    ));
   }
 
   void _updateQty(BuildContext context, CartItemEntity item, int delta) {
