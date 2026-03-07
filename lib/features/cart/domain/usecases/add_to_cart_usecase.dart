@@ -4,12 +4,12 @@ import '../entities/cart_item_entity.dart';
 // UseCase: Quy trình nghiệp vụ thêm một món đồ vào giỏ
 class AddToCartUseCase {
   List<CartItemEntity> execute(List<CartItemEntity> currentCart, CartItemEntity newItem) {
-    // Kiểm tra xem có món nào giống hệt (ID + Món phụ + Ghi chú) đã tồn tại chưa
+    // Kiểm tra xem có món nào giống hệt (Tên + Món phụ + Ghi chú) đã tồn tại chưa
     final existingItemIndex = currentCart.indexWhere((item) {
-      // 1. So sánh ID/Tên gốc
-      bool isSameProduct = item.id.split('_')[0] == newItem.id.split('_')[0];
+      // 1. So sánh Tên sản phẩm (Thay vì ID split vì dễ bị trùng tiền tố 'static_')
+      bool isSameProduct = item.name == newItem.name;
       
-      // 2. So sánh danh sách món phụ (Dùng DeepCollectionEquality để so sánh nội dung List)
+      // 2. So sánh danh sách món phụ
       bool isSameSideDishes = const DeepCollectionEquality.unordered().equals(
         item.selectedSideDishes, 
         newItem.selectedSideDishes
@@ -29,8 +29,8 @@ class AddToCartUseCase {
       );
       return updatedCart;
     } else {
-      // Nếu KHÁC (dù chỉ là 1 món phụ hoặc 1 dòng ghi chú) -> Thêm dòng mới
-      // Tạo một ID duy nhất để không bị trùng lặp trong danh sách
+      // Nếu KHÁC -> Thêm dòng mới
+      // Đảm bảo mỗi dòng trong giỏ hàng có một ID duy nhất để không bị lỗi Key trong ListView
       final itemWithUniqueId = newItem.copyWith(
         id: "${newItem.id}_${DateTime.now().millisecondsSinceEpoch}"
       );
