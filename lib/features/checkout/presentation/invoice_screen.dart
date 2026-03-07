@@ -45,43 +45,47 @@ class InvoiceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("HÓA ĐƠN CHI TIẾT"),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
+        title: const Text("HÓA ĐƠN CHI TIẾT", 
+          style: TextStyle(fontWeight: FontWeight.w900, color: Colors.orange, fontSize: 20)),
         centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const Icon(Icons.check_circle_outline, color: Colors.green, size: 80),
+            const Icon(Icons.check_circle, color: Colors.green, size: 80),
             const SizedBox(height: 10),
             const Text(
               "Đặt hàng thành công!",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
             ),
-            const Text("Cảm ơn bạn đã mua sắm tại Local Mart"),
+            const Text("Cảm ơn bạn đã mua sắm tại Local Mart", style: TextStyle(color: Colors.grey)),
             const Divider(height: 40),
 
             _buildSectionTitle("Thông tin khách hàng"),
-            Card(
-              elevation: 0,
-              color: Colors.grey[100],
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    _buildInfoRow(Icons.person, "Tên:", name),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(Icons.phone, "SĐT:", phone),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(Icons.location_on, "Địa chỉ:", address),
-                  ],
-                ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.grey.withOpacity(0.1)),
+              ),
+              child: Column(
+                children: [
+                  _infoRow(Icons.person_outline, "Tên khách hàng:", name),
+                  const SizedBox(height: 10),
+                  _infoRow(Icons.phone_outlined, "Số điện thoại:", phone),
+                  const SizedBox(height: 10),
+                  _infoRow(Icons.location_on_outlined, "Địa chỉ nhận:", address),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 25),
 
             _buildSectionTitle("Chi tiết đơn hàng"),
             ListView.builder(
@@ -90,25 +94,50 @@ class InvoiceScreen extends StatelessWidget {
               itemCount: items.length,
               itemBuilder: (context, index) {
                 final item = items[index];
+                final sideNames = item.selectedSideDishes.map((s) => s.name).toList();
+
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: ProductImage(imageUrl: item.imageUrl, width: 40, height: 40),
+                      Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: ProductImage(imageUrl: item.imageUrl, width: 50, height: 50),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Sửa lỗi tràn tên sản phẩm ở Invoice
+                                Text(item.name, 
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text("Số lượng: ${item.quantity}", style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text("${_formatCurrency(item.totalPrice)} VND", style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(item.name, style: const TextStyle(fontWeight: FontWeight.w500)),
-                            Text("SL: ${item.quantity}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                          ],
+                      if (sideNames.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 62, top: 4),
+                          child: Text("Món phụ: ${sideNames.join(', ')}", 
+                            style: TextStyle(fontSize: 12, color: Colors.blue[700])),
                         ),
-                      ),
-                      Text("${_formatCurrency(item.price * item.quantity)} VND"),
+                      if (item.note.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 62, top: 2),
+                          child: Text("Ghi chú: ${item.note}", 
+                            style: const TextStyle(fontSize: 12, color: Colors.orange, fontStyle: FontStyle.italic)),
+                        ),
                     ],
                   ),
                 );
@@ -116,21 +145,30 @@ class InvoiceScreen extends StatelessWidget {
             ),
             const Divider(height: 30),
 
+            // Sửa lỗi tràn tại dòng Phương thức thanh toán
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start, // Căn lề trên để trông đẹp hơn khi xuống dòng
               children: [
-                const Text("Phương thức:", style: TextStyle(color: Colors.grey)),
-                Text(_getPaymentMethodText(paymentMethod), style: const TextStyle(fontWeight: FontWeight.w500)),
+                const Text("Phương thức thanh toán:", style: TextStyle(color: Colors.grey)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _getPaymentMethodText(paymentMethod), 
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Tổng thanh toán:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text("TỔNG THANH TOÁN:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 Text(
                   "${_formatCurrency(totalPrice)} VND",
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red),
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red),
                 ),
               ],
             ),
@@ -138,24 +176,25 @@ class InvoiceScreen extends StatelessWidget {
 
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 55,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () {
                   context.read<CartBloc>().add(ClearCartEvent());
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text("Đơn hàng đã được ghi nhận thành công!"),
-                      backgroundColor: Colors.green,
+                      content: Text("Cảm ơn bạn đã ủng hộ Local Mart! ✅"),
+                      backgroundColor: Colors.orange,
                     ),
                   );
                   Navigator.popUntil(context, (route) => route.isFirst);
                 },
-                child: const Text("QUAY VỀ TRANG CHỦ", style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text("QUAY VỀ TRANG CHỦ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
             ),
           ],
@@ -168,21 +207,22 @@ class InvoiceScreen extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.orange)),
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _infoRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.green),
+        Icon(icon, size: 18, color: Colors.orange),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: Colors.grey)),
-        const SizedBox(width: 4),
-        Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500))),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+        const SizedBox(width: 6),
+        // Sửa lỗi tràn thông tin khách hàng nếu địa chỉ quá dài
+        Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
       ],
     );
   }
