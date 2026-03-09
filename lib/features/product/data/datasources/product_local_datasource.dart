@@ -13,37 +13,28 @@ class ProductLocalDataSource {
   }
 
   Future<Database> _initDB() async {
-    final path = join(await getDatabasesPath(), 'products_v3.db'); // V3 để đảm bảo schema mới nhất
+    final path = join(await getDatabasesPath(), 'products_v7.db'); // Dùng file mới hoàn toàn để tránh lỗi cũ
 
     return await openDatabase(
       path,
-      version: 6, 
+      version: 1, 
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products(
             id TEXT PRIMARY KEY,
-            name TEXT,
-            price REAL,
+            name TEXT NOT NULL,
+            price REAL NOT NULL,
             description TEXT,
             imageUrl TEXT,
-            sideDishes TEXT
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE best_sellers(
-            id TEXT PRIMARY KEY,
-            name TEXT,
-            price REAL,
-            description TEXT,
-            imageUrl TEXT,
-            sideDishes TEXT
+            sideDishes TEXT,
+            category TEXT,
+            isAvailable INTEGER DEFAULT 1
           )
         ''');
       },
     );
   }
 
-  // Thêm lại hàm init() để main.dart không bị lỗi
   Future<void> init() async {
     await database;
   }
@@ -51,6 +42,7 @@ class ProductLocalDataSource {
   Future<List<ProductModel>> getProducts() async {
     final db = await database;
     final result = await db.query('products');
+    print("--- [SQLITE] ĐÃ TẢI ${result.length} MÓN ĂN ---");
     return result.map((e) => ProductModel.fromMap(e)).toList();
   }
 
@@ -63,26 +55,18 @@ class ProductLocalDataSource {
 
   Future<void> addProduct(ProductModel product) async {
     final db = await database;
-    await db.insert('products', product.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    final row = product.toMap();
+    print("--- [SQLITE] ĐANG LƯU MÓN: ${product.name} ---");
+    await db.insert(
+      'products', 
+      row, 
+      conflictAlgorithm: ConflictAlgorithm.replace
+    );
+    print("--- [SQLITE] LƯU THÀNH CÔNG ---");
   }
 
   Future<void> deleteProduct(String id) async {
     final db = await database;
     await db.delete('products', where: 'id = ?', whereArgs: [id]);
-  }
-
-  Future<List<ProductModel>> getBestSellers() async {
-    final db = await database;
-    final result = await db.query('best_sellers');
-    return result.map((e) => ProductModel.fromMap(e)).toList();
-  }
-
-  Future<void> toggleBestSeller(ProductModel product, bool isAdd) async {
-    final db = await database;
-    if (isAdd) {
-      await db.insert('best_sellers', product.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
-    } else {
-      await db.delete('best_sellers', where: 'id = ?', whereArgs: [product.id]);
-    }
   }
 }

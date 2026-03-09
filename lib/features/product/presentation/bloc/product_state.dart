@@ -2,28 +2,26 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/product_entity.dart';
 
 class ProductState extends Equatable {
-  final List<ProductEntity> localProducts;
-  final List<ProductEntity> remoteProducts;
-  final List<ProductEntity> bestSellerProducts; // Danh sách Best Seller do Admin chọn
-  final List<Map<String, String>> categories; 
-  final String selectedCategory;
+  final List<ProductEntity> localProducts; // Món ăn Admin thêm (SQLite)
+  final List<ProductEntity> remoteProducts; // Món ăn từ API (TheMealDB)
+  final List<Map<String, String>> categories; // Danh mục từ API
+  final String selectedCategory; // Danh mục đang chọn
   final bool isLoading;
 
   const ProductState({
     this.localProducts = const [],
     this.remoteProducts = const [],
-    this.bestSellerProducts = const [],
     this.categories = const [],
-    this.selectedCategory = "Best Seller", // Mặc định chọn Best Seller
+    this.selectedCategory = "Beef", // Mặc định chọn Beef
     this.isLoading = false,
   });
 
-  List<ProductEntity> get products => remoteProducts.isNotEmpty ? remoteProducts : localProducts;
+  // Getter tổng hợp để dùng cho các màn hình cũ không bị lỗi build
+  List<ProductEntity> get products => [...localProducts, ...remoteProducts];
 
   ProductState copyWith({
     List<ProductEntity>? localProducts,
     List<ProductEntity>? remoteProducts,
-    List<ProductEntity>? bestSellerProducts,
     List<Map<String, String>>? categories,
     String? selectedCategory,
     bool? isLoading,
@@ -31,7 +29,6 @@ class ProductState extends Equatable {
     return ProductState(
       localProducts: localProducts ?? this.localProducts,
       remoteProducts: remoteProducts ?? this.remoteProducts,
-      bestSellerProducts: bestSellerProducts ?? this.bestSellerProducts,
       categories: categories ?? this.categories,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       isLoading: isLoading ?? this.isLoading,
@@ -39,5 +36,5 @@ class ProductState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [localProducts, remoteProducts, bestSellerProducts, categories, selectedCategory, isLoading];
+  List<Object?> get props => [localProducts, remoteProducts, categories, selectedCategory, isLoading];
 }

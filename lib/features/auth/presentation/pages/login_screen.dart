@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import 'register_screen.dart';
+import '../../../product/presentation/pages/admin_action_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -13,8 +14,15 @@ class LoginScreen extends StatelessWidget {
 
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state.status == AuthStatus.authenticated || state.status == AuthStatus.admin) {
-          Navigator.pop(context, {'isAdmin': state.status == AuthStatus.admin});
+        if (state.status == AuthStatus.admin) {
+          // NẾU LÀ ADMIN: VÀO THẲNG TRANG ADMIN ACTION
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AdminActionScreen()),
+          );
+        } else if (state.status == AuthStatus.authenticated) {
+          // NẾU LÀ KHÁCH: QUAY VỀ TRANG CHỦ
+          Navigator.pop(context);
         } else if (state.status == AuthStatus.error) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.errorMessage ?? "Lỗi đăng nhập")),
@@ -23,7 +31,7 @@ class LoginScreen extends StatelessWidget {
       },
       child: Scaffold(
         backgroundColor: Colors.white,
-        appBar: AppBar(backgroundColor: Colors.white, elevation: 0),
+        appBar: AppBar(backgroundColor: Colors.white, elevation: 0, iconTheme: const IconThemeData(color: Colors.black)),
         body: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(

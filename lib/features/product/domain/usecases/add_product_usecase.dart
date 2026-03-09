@@ -6,7 +6,8 @@ class AddProductUseCase {
 
   AddProductUseCase(this.repository);
 
-  Future<void> call(ProductEntity product) {
-    return repository.addProduct(product);
+  // Dùng hàm call để Bloc có thể gọi: await addProduct(product)
+  Future<void> call(ProductEntity product) async {
+    return await repository.addProduct(product);
   }
 }
