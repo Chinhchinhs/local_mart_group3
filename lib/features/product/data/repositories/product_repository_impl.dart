@@ -20,6 +20,7 @@ class ProductRepositoryImpl implements ProductRepository {
 
   @override
   Future<void> addProduct(ProductEntity product) async {
+    // Chuyển đổi từ Entity sang Model để lưu vào SQLite
     final model = ProductModel(
       id: product.id,
       name: product.name,
