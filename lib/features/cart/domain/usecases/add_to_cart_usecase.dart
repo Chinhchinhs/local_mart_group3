@@ -1,24 +1,40 @@
+import 'package:collection/collection.dart';
 import '../entities/cart_item_entity.dart';
 
 // UseCase: Quy trình nghiệp vụ thêm một món đồ vào giỏ
 class AddToCartUseCase {
-  // Tạm thời UseCase snày ẽ nhận danh sách giỏ hiện tại và món mới,
-  // sau đó trả về danh sách mới đã được cập nhật.
   List<CartItemEntity> execute(List<CartItemEntity> currentCart, CartItemEntity newItem) {
+    // Kiểm tra xem có món nào giống hệt (Tên + Món phụ + Ghi chú) đã tồn tại chưa
+    final existingItemIndex = currentCart.indexWhere((item) {
+      // 1. So sánh Tên sản phẩm (Thay vì ID split vì dễ bị trùng tiền tố 'static_')
+      bool isSameProduct = item.name == newItem.name;
+      
+      // 2. So sánh danh sách món phụ
+      bool isSameSideDishes = const DeepCollectionEquality.unordered().equals(
+        item.selectedSideDishes, 
+        newItem.selectedSideDishes
+      );
+      
+      // 3. So sánh ghi chú
+      bool isSameNote = item.note.trim() == newItem.note.trim();
 
-    // Kiểm tra xem món này đã có trong giỏ chưa
-    final index = currentCart.indexWhere((item) => item.id == newItem.id);
+      return isSameProduct && isSameSideDishes && isSameNote;
+    });
 
-    if (index != -1) {
-      // Nếu có rồi thì tăng số lượng lên
+    if (existingItemIndex != -1) {
+      // Nếu GIỐNG HỆT mọi thứ -> Gộp số lượng
       final updatedCart = List<CartItemEntity>.from(currentCart);
-      updatedCart[index] = updatedCart[index].copyWith(
-        quantity: updatedCart[index].quantity + 1,
+      updatedCart[existingItemIndex] = updatedCart[existingItemIndex].copyWith(
+        quantity: updatedCart[existingItemIndex].quantity + newItem.quantity,
       );
       return updatedCart;
     } else {
-      // Nếu chưa có thì thêm mới vào danh sách
-      return [...currentCart, newItem];
+      // Nếu KHÁC -> Thêm dòng mới
+      // Đảm bảo mỗi dòng trong giỏ hàng có một ID duy nhất để không bị lỗi Key trong ListView
+      final itemWithUniqueId = newItem.copyWith(
+        id: "${newItem.id}_${DateTime.now().millisecondsSinceEpoch}"
+      );
+      return [...currentCart, itemWithUniqueId];
     }
   }
 }

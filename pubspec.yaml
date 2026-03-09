@@ -29,3 +29,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - "lib/features/checkout/assets/images/Screenshot 2026-03-07 133324.png"

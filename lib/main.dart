@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:http/http.dart' as http;
 
 // --- Data ---
 import 'features/auth/data/datasources/auth_database_helper.dart';
@@ -9,7 +8,6 @@ import 'features/cart/data/datasources/cart_database_helper.dart';
 import 'features/cart/data/datasources/cart_local_datasource.dart';
 import 'features/cart/domain/repositories/cart_repository_impl.dart';
 import 'features/product/data/datasources/product_local_datasource.dart';
-import 'features/product/data/datasources/product_remote_data_source.dart';
 import 'features/product/data/repositories/product_repository_impl.dart';
 
 // --- Domain ---
@@ -18,8 +16,6 @@ import 'features/cart/domain/usecases/add_to_cart_usecase.dart';
 import 'features/product/domain/usecases/get_products_usecase.dart';
 import 'features/product/domain/usecases/add_product_usecase.dart';
 import 'features/product/domain/usecases/delete_product_usecase.dart';
-import 'features/product/domain/usecases/get_remote_products_usecase.dart';
-import 'features/product/domain/usecases/get_remote_categories_usecase.dart';
 
 // --- Presentation ---
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -39,12 +35,7 @@ void main() async {
   // 3. Khởi tạo Product
   final productLocalDataSource = ProductLocalDataSource();
   await productLocalDataSource.init();
-  final productRemoteDataSource = ProductRemoteDataSourceImpl(client: http.Client());
-  
-  final productRepository = ProductRepositoryImpl(
-    productLocalDataSource,
-    productRemoteDataSource,
-  );
+  final productRepository = ProductRepositoryImpl(productLocalDataSource);
 
   runApp(
     MultiBlocProvider(
@@ -60,11 +51,7 @@ void main() async {
             getProducts: GetProductsUseCase(productRepository),
             addProduct: AddProductUseCase(productRepository),
             deleteProduct: DeleteProductUseCase(productRepository),
-            getRemoteProducts: GetRemoteProductsUseCase(productRepository),
-            getRemoteCategories: GetRemoteCategoriesUseCase(productRepository),
-          )
-          ..add(FetchRemoteCategoriesEvent()) 
-          ..add(LoadProductsEvent()),
+          )..add(LoadProductsEvent()),
         ),
       ],
       child: const LocalMartApp(),

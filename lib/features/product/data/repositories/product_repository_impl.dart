@@ -1,25 +1,12 @@
 import '../../domain/entities/product_entity.dart';
 import '../../domain/repositories/product_repository.dart';
 import '../datasources/product_local_datasource.dart';
-import '../datasources/product_remote_data_source.dart';
 import '../models/product_model.dart';
 
 class ProductRepositoryImpl implements ProductRepository {
   final ProductLocalDataSource dataSource;
-  final ProductRemoteDataSource remoteDataSource;
 
-  // Chuyển sang tham số vị trí cho đơn giản
-  ProductRepositoryImpl(this.dataSource, this.remoteDataSource);
-
-  @override
-  Future<List<ProductEntity>> getRemoteProducts(String category) async {
-    return await remoteDataSource.getProductsByCategory(category);
-  }
-
-  @override
-  Future<List<Map<String, String>>> getRemoteCategories() async {
-    return await remoteDataSource.getCategories();
-  }
+  ProductRepositoryImpl(this.dataSource);
 
   @override
   Future<List<ProductEntity>> getProducts() async {
@@ -40,8 +27,8 @@ class ProductRepositoryImpl implements ProductRepository {
       description: product.description,
       imageUrl: product.imageUrl,
       sideDishes: product.sideDishes,
-      category: product.category,
       isAvailable: product.isAvailable,
+      category: product.category,
     );
     await dataSource.addProduct(model);
   }

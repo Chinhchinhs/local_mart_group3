@@ -1,4 +1,5 @@
-import 'dart:io'; // CHỈ THÊM DÒNG NÀY ĐỂ HẾT LỖI BUILD
+import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_mart/core/utils/currency_formatter.dart';
@@ -72,7 +73,12 @@ class CartScreen extends StatelessWidget {
                       )
                     : ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: SizedBox(width: 70, height: 70, child: Image.file(File(item.imageUrl), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.fastfood))),
+                        child: Image.file(
+                          File(item.imageUrl), 
+                          width: 70, height: 70, 
+                          fit: BoxFit.cover, 
+                          errorBuilder: (_, __, ___) => Container(width: 70, height: 70, color: Colors.grey[100], child: const Icon(Icons.fastfood, color: Colors.grey)),
+                        ),
                       ),
                   title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
                   subtitle: Column(
@@ -84,13 +90,13 @@ class CartScreen extends StatelessWidget {
                       if (item.selectedSideDishes.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text("• ${item.selectedSideDishes.length} món phụ đã chọn", 
+                          child: Text("• Món kèm: ${item.selectedSideDishes.map((e) => e.name).join(', ')}", 
                             style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
                         ),
                       if (item.note.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
-                          child: Text("📝 ${item.note}", 
+                          child: Text("📝 Ghi chú: ${item.note}", 
                             maxLines: 1, overflow: TextOverflow.ellipsis, 
                             style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.orange)),
                         ),

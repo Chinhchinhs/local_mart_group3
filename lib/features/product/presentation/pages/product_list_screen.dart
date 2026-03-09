@@ -30,7 +30,6 @@ class ProductListScreen extends StatefulWidget {
 }
 
 class _ProductListScreenState extends State<ProductListScreen> {
-  // KHAI BÁO CÁC BIẾN BỊ THIẾU
   final TextEditingController searchController = TextEditingController();
   String searchQuery = "";
 
@@ -40,7 +39,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
     _refreshData();
   }
 
-  // GIẢI PHÓNG BỘ NHỚ CHO CONTROLLER
   @override
   void dispose() {
     searchController.dispose();
@@ -91,6 +89,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
             if (!widget.isDeleteMode && !widget.isAdminPreview)
               _buildCartIcon(context),
           ],
+          // THANH TÌM KIẾM LUÔN HIỂN THỊ
           bottom: MartSearchBar(
             controller: searchController,
             hintText: "Bạn muốn ăn gì hôm nay?",
@@ -108,6 +107,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
               return _buildEmptyView();
             }
 
+            // LOGIC CỐ ĐỊNH VỊ TRÍ VÀ TÌM KIẾM
             List<ProductEntity> displayList = List.from(state.products);
             displayList.sort((a, b) => a.name.compareTo(b.name));
             
@@ -154,7 +154,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
       onTap: () {
         if (isAvailable || widget.isAdminPreview) {
           Navigator.push(context, MaterialPageRoute(
-            builder: (_) => ProductDetailScreen(product: product, isReadOnly: widget.isAdminPreview)
+            builder: (_) => widget.isAdminPreview 
+              ? AdminDeleteDetailScreen(product: product) 
+              : ProductDetailScreen(product: product, isReadOnly: widget.isAdminPreview)
           )).then((_) => _refreshData());
         }
       },
@@ -162,7 +164,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 5))],
           border: Border.all(color: Colors.grey[100]!),
         ),
         child: ClipRRect(
