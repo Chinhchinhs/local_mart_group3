@@ -1,8 +1,8 @@
-import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_mart/core/utils/currency_formatter.dart';
+import 'package:local_mart/features/product/presentation/widgets/product_image.dart';
 import 'package:local_mart/features/product/presentation/bloc/product_bloc.dart';
 import 'package:local_mart/features/product/presentation/bloc/product_state.dart';
 import '../domain/entities/cart_item_entity.dart';
@@ -107,7 +107,6 @@ class _OrderNoteFieldState extends State<OrderNoteField> {
   }
 }
 
-
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
 
@@ -147,88 +146,122 @@ class _CartScreenState extends State<CartScreen> {
         builder: (context, state) {
           if (state.items.isEmpty) return _buildEmptyCart(context);
 
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            itemCount: state.items.length,
-            itemBuilder: (context, index) {
-              final item = state.items[index];
-              final isSelected = state.selectedItemIds.contains(item.id);
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.grey.withOpacity(0.1)),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 5))
-                  ],
-                ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(10),
-                  onTap: () {
-                    if (state.isSelectionMode) {
-                      context.read<CartBloc>().add(ToggleItemSelectionEvent(item.id));
+          return Column(
+            children: [
+              _buildFreeShipProgress(state.totalPrice),
+              
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  itemCount: state.items.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == state.items.length) {
+                      return _buildRecommendations(context);
                     }
-                  },
-                  leading: state.isSelectionMode
-                    ? Checkbox(
-                        value: isSelected,
-                        activeColor: Colors.blue,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                        onChanged: (_) => context.read<CartBloc>().add(ToggleItemSelectionEvent(item.id)),
-                      )
-                    : ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(
-                          File(item.imageUrl), 
-                          width: 70, height: 70, 
-                          fit: BoxFit.cover, 
-                          errorBuilder: (_, __, ___) => Container(width: 70, height: 70, color: Colors.grey[100], child: const Icon(Icons.fastfood, color: Colors.grey)),
+
+                    final item = state.items[index];
+                    final isSelected = state.selectedItemIds.contains(item.id);
+
+                    return Dismissible(
+                      key: Key('cart_${item.id}'),
+                      direction: state.isSelectionMode ? DismissDirection.none : DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 25),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(15),
                         ),
+                        child: const Icon(Icons.delete_forever, color: Colors.white, size: 35),
                       ),
-                  title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 4),
-                      Text(CurrencyFormatter.format(item.price), 
-                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                      if (item.selectedSideDishes.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text("• Món kèm: ${item.selectedSideDishes.map((e) => e.name).join(', ')}", 
-                            style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
-                        ),
-                      if (item.note.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text("📝 Ghi chú: ${item.note}", 
-                            maxLines: 1, overflow: TextOverflow.ellipsis, 
-                            style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.orange)),
-                        ),
-                    ],
-                  ),
-                  trailing: state.isSelectionMode 
-                    ? null 
-                    : Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(20)),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _qtyBtn(Icons.remove, () => _updateQty(context, item, -1)),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            _qtyBtn(Icons.add, () => _updateQty(context, item, 1)),
+                      onDismissed: (direction) {
+                        context.read<CartBloc>().add(RemoveItemEvent(item.id));
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _showUndoSnackBar(context, item);
+                        });
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 5))
                           ],
                         ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(10),
+                          onTap: () {
+                            if (state.isSelectionMode) {
+                              context.read<CartBloc>().add(ToggleItemSelectionEvent(item.id));
+                            } else {
+                              _navigateToEdit(context, item);
+                            }
+                          },
+                          leading: state.isSelectionMode
+                            ? Checkbox(
+                                value: isSelected,
+                                activeColor: Colors.blue,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                onChanged: (_) => context.read<CartBloc>().add(ToggleItemSelectionEvent(item.id)),
+                              )
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: SizedBox(width: 70, height: 70, child: ProductImage(imageUrl: item.imageUrl, fit: BoxFit.cover)),
+                              ),
+                          title: Text(item.name, 
+                            maxLines: 1, 
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 4),
+                              Text(CurrencyFormatter.formatVND(item.totalPrice), 
+                                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15)),
+                              
+                              if (item.selectedSideDishes.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text("• ${item.selectedSideDishes.length} món phụ: ${item.selectedSideDishes.map((e) => e.name).join(', ')}", 
+                                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                                ),
+                              if (item.note.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text("📝 ${item.note}", 
+                                    maxLines: 1, overflow: TextOverflow.ellipsis, 
+                                    style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.orange)),
+                                ),
+                            ],
+                          ),
+                          trailing: state.isSelectionMode 
+                            ? null 
+                            : Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(20)),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _qtyBtn(Icons.remove, () => _updateQty(context, item, -1)),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                      child: Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                    _qtyBtn(Icons.add, () => _updateQty(context, item, 1)),
+                                  ],
+                                ),
+                              ),
+                        ),
                       ),
+                    );
+                  },
                 ),
-              );
-            },
+              ),
+            ],
           );
         },
       ),
@@ -248,10 +281,6 @@ class _CartScreenState extends State<CartScreen> {
       ),
     );
   }
-
-
-  Widget _buildBottomBar(BuildContext context) {
-    return BlocBuilder<CartBloc, CartState>(
 
   Widget _buildFreeShipProgress(double totalPrice) {
     const double threshold = 200000;
@@ -386,57 +415,16 @@ class _CartScreenState extends State<CartScreen> {
           previous.totalPrice != current.totalPrice || 
           previous.isSelectionMode != current.isSelectionMode ||
           previous.selectedItemIds.length != current.selectedItemIds.length,
-
       builder: (context, state) {
         if (state.items.isEmpty) return const SizedBox.shrink();
         return Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 15, offset: const Offset(0, -5))],
+            borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
           ),
           child: SafeArea(
-
-            child: state.isSelectionMode
-              ? SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: state.selectedItemIds.isEmpty ? Colors.grey : Colors.red,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: state.selectedItemIds.isEmpty ? null : () => context.read<CartBloc>().add(DeleteSelectedItemsEvent()),
-                    child: Text("XÓA ${state.selectedItemIds.length} MÓN ĐÃ CHỌN", 
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                  )
-                )
-              : Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text("Tổng cộng", style: TextStyle(color: Colors.grey)),
-                          Text(CurrencyFormatter.format(state.totalPrice), 
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red)),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: () => Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => CheckoutScreen(items: state.items, totalPrice: state.totalPrice)
-                        )),
-                        child: const Text("THANH TOÁN", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                      ),
-
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -521,10 +509,9 @@ class _CartScreenState extends State<CartScreen> {
                           ),
                         ),
                       ],
-
                     ),
-                  ],
-                ),
+              ],
+            ),
           ),
         );
       },
@@ -565,9 +552,51 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
+  void _navigateToEdit(BuildContext context, CartItemEntity item) {
+    final productState = context.read<ProductBloc>().state;
+    final allProducts = [...productState.remoteProducts, ...productState.localProducts];
+    final originalProduct = allProducts.firstWhere(
+      (p) => p.name == item.name,
+      orElse: () => productState.remoteProducts.isNotEmpty ? productState.remoteProducts.first : allProducts.first
+    );
+
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => EditCartItemScreen(
+        item: item, 
+        allAvailableSideDishes: originalProduct.sideDishes
+      )
+    ));
+  }
+
   void _updateQty(BuildContext context, CartItemEntity item, int delta) {
     if (item.quantity + delta > 0) {
       context.read<CartBloc>().add(UpdateQuantityEvent(item.id, item.quantity + delta));
     }
+  }
+
+  void _showUndoSnackBar(BuildContext context, CartItemEntity item) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text("Đã xóa ${item.name}"),
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating, 
+        margin: const EdgeInsets.only(bottom: 10, left: 16, right: 16), 
+        action: SnackBarAction(
+          label: "HOÀN TÁC",
+          textColor: Colors.orange,
+          onPressed: () {
+            messenger.clearSnackBars();
+            context.read<CartBloc>().add(AddItemEvent(item));
+          },
+        ),
+      ),
+    );
+
+    Timer(const Duration(seconds: 5), () {
+      try { messenger.clearSnackBars(); } catch (_) {}
+    });
   }
 }
