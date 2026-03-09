@@ -8,9 +8,12 @@ import '../../cart/domain/entities/cart_item_entity.dart';
 import '../../cart/presentation/bloc/cart_bloc.dart';
 import '../../product/presentation/widgets/product_image.dart';
 
+/// Màn hình cuối cùng, hiển thị hóa đơn chi tiết sau khi thanh toán thành công.
+/// Cung cấp tính năng In hóa đơn ra file PDF.
 class InvoiceScreen extends StatelessWidget {
+  //--- DỮ LIỆU NHẬN TỪ CÁC MÀN HÌNH TRƯỚC ---
   final List<CartItemEntity> items;
-  final double totalPrice;
+  final double totalPrice; // Luôn là giá gốc (Tạm tính)
   final String name;
   final String phone;
   final String address;
@@ -29,14 +32,14 @@ class InvoiceScreen extends StatelessWidget {
     this.voucherCode,
     this.shipperNote,
   });
-
+  /// Helper: Định dạng số sang chuỗi tiền tệ (VD: 100000 -> "100.000").
   String _formatCurrency(double amount) {
     return amount.toStringAsFixed(0).replaceAllMapped(
           RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
           (Match m) => '${m[1]}.',
         );
   }
-
+  /// Helper: Chuyển mã phương thức thanh toán (VD: 'cash') thành chuỗi đầy đủ.
   String _getPaymentMethodText(String method) {
     switch (method) {
       case 'cash':
@@ -49,17 +52,33 @@ class InvoiceScreen extends StatelessWidget {
         return method;
     }
   }
-  /// Hàm tạo file PDF hóa đơn
+  /// Helper: Bóc tách giá trị số từ chuỗi voucher.
+  double _parseVoucher(String? voucher) {
+    if (voucher == null || voucher.isEmpty) {
+      return 0.0;
+    }
+    try {
+      // Xóa hết các ký tự không phải số (như dấu chấm, chữ VND) rồi chuyển thành số.
+      return double.parse(voucher.replaceAll(RegExp(r'[^0-9]'), ''));
+    } catch (e) {
+      return 0.0; // Nếu có lỗi, trả về 0
+    }
+  }
+  /// Chức năng chính: Tạo và thiết kế file PDF cho hóa đơn.
   Future<Uint8List> _generatePdf(PdfPageFormat format) async {
     final pdf = pw.Document();
-    // Tải font hỗ trợ tiếng Việt
+    // Tải font hỗ trợ tiếng Việt từ Google Fonts cho file PDF.
     final font = await PdfGoogleFonts.robotoRegular();
     final fontBold = await PdfGoogleFonts.robotoBold();
 
+    final double voucherDiscount = _parseVoucher(voucherCode);
+    final double finalPrice = totalPrice - voucherDiscount;
+    // Thêm một trang mới vào file PDF.
     pdf.addPage(
       pw.Page(
         pageFormat: format,
         build: (pw.Context context) {
+          // Xây dựng bố cục và nội dung của trang PDF.
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -78,6 +97,7 @@ class InvoiceScreen extends StatelessWidget {
               pw.Text("Chi tiết đơn hàng:", style: pw.TextStyle(font: fontBold, fontSize: 14)),
               pw.Divider(),
               
+              // In danh sách sản phẩm
               pw.Column(
                 children: items.map((item) {
                   return pw.Padding(
@@ -103,20 +123,27 @@ class InvoiceScreen extends StatelessWidget {
                   );
                 }).toList(),
               ),
-              
               pw.Divider(),
-              if (voucherCode != null && voucherCode!.isNotEmpty)
-                pw.Text("Voucher: $voucherCode", style: pw.TextStyle(font: font)),
-              pw.Text("Phương thức: ${_getPaymentMethodText(paymentMethod)}", style: pw.TextStyle(font: font)),
+              // In phần tổng kết hóa đơn
+              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
+                pw.Text("Tạm tính: ", style: pw.TextStyle(font: font)),
+                pw.Text("${_formatCurrency(totalPrice)} VND", style: pw.TextStyle(font: font)),
+              ]),
+              if (voucherDiscount > 0)
+                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
+                  pw.Text("Giảm giá: ", style: pw.TextStyle(font: font)),
+                  pw.Text("- ${_formatCurrency(voucherDiscount)} VND", style: pw.TextStyle(font: font, color: PdfColors.green)),
+                ]),
               pw.SizedBox(height: 10),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text("TỔNG CỘNG:", style: pw.TextStyle(font: fontBold, fontSize: 16)),
-                  pw.Text("${_formatCurrency(totalPrice)} VND", 
+                  pw.Text("${_formatCurrency(finalPrice)} VND", 
                     style: pw.TextStyle(font: fontBold, fontSize: 16, color: PdfColors.red)),
                 ],
               ),
+              
               pw.SizedBox(height: 40),
               pw.Center(
                 child: pw.Text("Cảm ơn quý khách đã mua sắm!", style: pw.TextStyle(font: font, fontStyle: pw.FontStyle.italic)),
@@ -126,12 +153,15 @@ class InvoiceScreen extends StatelessWidget {
         },
       ),
     );
-
-    return pdf.save();
+    return pdf.save(); // Lưu và trả về file PDF dưới dạng byte.
   }
 
   @override
   Widget build(BuildContext context) {
+    // Tính toán giá trị voucher và giá cuối cùng để hiển thị trên UI.
+    final double voucherDiscount = _parseVoucher(voucherCode);
+    final double finalPrice = totalPrice - voucherDiscount;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -142,13 +172,14 @@ class InvoiceScreen extends StatelessWidget {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
-          // Nút In hóa đơn
+          // Nút bấm để thực hiện chức năng in
           IconButton(
             icon: const Icon(Icons.print, color: Colors.orange),
             onPressed: () async {
+              // Gọi thư viện printing, truyền vào hàm tạo PDF của chúng ta
               await Printing.layoutPdf(
                 onLayout: (PdfPageFormat format) => _generatePdf(format),
-                name: 'HoaDon_LocalMart_$name',
+                name: 'HoaDon_LocalMart_$name', // Tên file PDF mặc định
               );
             },
           ),
@@ -242,7 +273,7 @@ class InvoiceScreen extends StatelessWidget {
                 );
               },
             ),
-
+            // Hiển thị thông tin voucher và ghi chú shipper nếu có
             if ((voucherCode != null && voucherCode!.isNotEmpty) || (shipperNote != null && shipperNote!.isNotEmpty))
               Container(
                 margin: const EdgeInsets.only(top: 15, bottom: 15),
@@ -266,6 +297,16 @@ class InvoiceScreen extends StatelessWidget {
 
             const Divider(height: 30),
 
+            // Bảng tóm tắt giá tiền cuối cùng
+            _buildPriceRow("Tạm tính:", _formatCurrency(totalPrice), color: Colors.grey),
+            if (voucherDiscount > 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: _buildPriceRow("Giảm giá Voucher:", "- ${_formatCurrency(voucherDiscount)} VND", color: Colors.green),
+              ),
+            
+            const Divider(),
+
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,13 +328,13 @@ class InvoiceScreen extends StatelessWidget {
               children: [
                 const Text("TỔNG THANH TOÁN:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 Text(
-                  "${_formatCurrency(totalPrice)} VND",
+                  "${_formatCurrency(finalPrice)} VND",
                   style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red),
                 ),
               ],
             ),
             const SizedBox(height: 40),
-
+            // Nút bấm để quay về trang chủ và xóa giỏ hàng
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -305,6 +346,7 @@ class InvoiceScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () {
+                  // Gọi sự kiện xóa giỏ hàng từ BLoC
                   context.read<CartBloc>().add(ClearCartEvent());
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -312,6 +354,7 @@ class InvoiceScreen extends StatelessWidget {
                       backgroundColor: Colors.orange,
                     ),
                   );
+                  // Quay về màn hình đầu tiên (ProductListScreen)
                   Navigator.popUntil(context, (route) => route.isFirst);
                 },
                 child: const Text("QUAY VỀ TRANG CHỦ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -322,7 +365,7 @@ class InvoiceScreen extends StatelessWidget {
       ),
     );
   }
-
+  /// Helper: Widget tạo tiêu đề cho các khu vực.
   Widget _buildSectionTitle(String title) {
     return Align(
       alignment: Alignment.centerLeft,
@@ -332,7 +375,7 @@ class InvoiceScreen extends StatelessWidget {
       ),
     );
   }
-
+  /// Helper: Widget tạo một hàng thông tin có Icon và Text.
   Widget _infoRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -343,6 +386,19 @@ class InvoiceScreen extends StatelessWidget {
         const SizedBox(width: 6),
         Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
       ],
+    );
+  }
+  /// Helper: Widget tạo một hàng hiển thị giá tiền.
+  Widget _buildPriceRow(String label, String value, {Color color = Colors.black}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.grey[600])),
+          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 }
