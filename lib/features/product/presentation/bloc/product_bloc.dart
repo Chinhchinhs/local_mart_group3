@@ -36,7 +36,7 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
       emit(state.copyWith(isLoading: true));
       try {
         final products = await getProducts();
-        emit(state.copyWith(products: List.from(products), isLoading: false));
+        emit(state.copyWith(localProducts: List.from(products), isLoading: false));
       } catch (e) {
         emit(state.copyWith(isLoading: false));
       }
@@ -47,7 +47,7 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
       try {
         await addProduct(event.product);
         final newProducts = await getProducts();
-        emit(state.copyWith(products: List.from(newProducts), isLoading: false));
+        emit(state.copyWith(localProducts: List.from(newProducts), isLoading: false));
       } catch (e) {
         emit(state.copyWith(isLoading: false));
       }
@@ -58,7 +58,7 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
       try {
         await addProduct(event.product); // Replace trong SQLite
         final newProducts = await getProducts();
-        emit(state.copyWith(products: List.from(newProducts), isLoading: false));
+        emit(state.copyWith(localProducts: List.from(newProducts), isLoading: false));
       } catch (e) {
         emit(state.copyWith(isLoading: false));
       }
@@ -69,7 +69,7 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
       try {
         await deleteProduct(event.id);
         final newProducts = await getProducts();
-        emit(state.copyWith(products: List.from(newProducts), isLoading: false));
+        emit(state.copyWith(localProducts: List.from(newProducts), isLoading: false));
       } catch (e) {
         emit(state.copyWith(isLoading: false));
       }

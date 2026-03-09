@@ -1,26 +1,30 @@
 import '../../domain/entities/product_entity.dart';
 import '../../domain/repositories/product_repository.dart';
 import '../datasources/product_local_datasource.dart';
+import '../datasources/product_remote_data_source.dart';
 import '../models/product_model.dart';
 
 class ProductRepositoryImpl implements ProductRepository {
-  final ProductLocalDataSource dataSource;
+  final ProductLocalDataSource localDataSource;
+  final ProductRemoteDataSource remoteDataSource;
 
-  ProductRepositoryImpl(this.dataSource);
+  ProductRepositoryImpl({
+    required this.localDataSource,
+    required this.remoteDataSource,
+  });
 
   @override
   Future<List<ProductEntity>> getProducts() async {
-    return await dataSource.getProducts();
+    return await localDataSource.getProducts();
   }
 
   @override
   Future<ProductEntity?> getProductById(String id) async {
-    return await dataSource.getProductById(id);
+    return await localDataSource.getProductById(id);
   }
 
   @override
   Future<void> addProduct(ProductEntity product) async {
-    // Chuyển đổi từ Entity sang Model để lưu vào SQLite
     final model = ProductModel(
       id: product.id,
       name: product.name,
@@ -31,11 +35,21 @@ class ProductRepositoryImpl implements ProductRepository {
       isAvailable: product.isAvailable,
       category: product.category,
     );
-    await dataSource.addProduct(model);
+    await localDataSource.addProduct(model);
   }
 
   @override
   Future<void> deleteProduct(String id) async {
-    await dataSource.deleteProduct(id);
+    await localDataSource.deleteProduct(id);
+  }
+
+  @override
+  Future<List<ProductEntity>> getRemoteProducts(String category) async {
+    return await remoteDataSource.getProductsByCategory(category);
+  }
+
+  @override
+  Future<List<Map<String, String>>> getRemoteCategories() async {
+    return await remoteDataSource.getCategories();
   }
 }

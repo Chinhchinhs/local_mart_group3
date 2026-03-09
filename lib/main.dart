@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
 
 // --- Data ---
 import 'features/auth/data/datasources/auth_database_helper.dart';
@@ -8,6 +9,7 @@ import 'features/cart/data/datasources/cart_database_helper.dart';
 import 'features/cart/data/datasources/cart_local_datasource.dart';
 import 'features/cart/domain/repositories/cart_repository_impl.dart';
 import 'features/product/data/datasources/product_local_datasource.dart';
+import 'features/product/data/datasources/product_remote_data_source.dart';
 import 'features/product/data/repositories/product_repository_impl.dart';
 
 // --- Domain ---
@@ -35,7 +37,12 @@ void main() async {
   // 3. Khởi tạo Product
   final productLocalDataSource = ProductLocalDataSource();
   await productLocalDataSource.init();
-  final productRepository = ProductRepositoryImpl(productLocalDataSource);
+  final productRemoteDataSource = ProductRemoteDataSourceImpl(client: http.Client());
+  
+  final productRepository = ProductRepositoryImpl(
+    localDataSource: productLocalDataSource,
+    remoteDataSource: productRemoteDataSource,
+  );
 
   runApp(
     MultiBlocProvider(
@@ -48,9 +55,9 @@ void main() async {
         ),
         BlocProvider(
           create: (_) => ProductBloc(
-            getProducts: GetProductsUseCase(productRepository),
-            addProduct: AddProductUseCase(productRepository),
-            deleteProduct: DeleteProductUseCase(productRepository),
+            GetProductsUseCase(productRepository),
+            AddProductUseCase(productRepository),
+            DeleteProductUseCase(productRepository),
           )..add(LoadProductsEvent()),
         ),
       ],
