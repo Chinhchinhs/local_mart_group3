@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'add_product_screen.dart';
 import 'product_list_screen.dart';
-import 'admin_edit_list_screen.dart';
-import 'admin_lock_list_screen.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
 
 class AdminActionScreen extends StatelessWidget {
   const AdminActionScreen({super.key});
@@ -17,12 +13,12 @@ class AdminActionScreen extends StatelessWidget {
         title: const Text("Admin Control Panel", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
-        centerTitle: true,
-        automaticallyImplyLeading: false, // XÓA DẤU MŨI TÊN QUAY LẠI
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildAdminCard(
               context,
@@ -32,65 +28,33 @@ class AdminActionScreen extends StatelessWidget {
               color: Colors.green,
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen())),
             ),
-            const SizedBox(height: 16),
-            _buildAdminCard(
-              context,
-              title: "Sửa món đã có",
-              subtitle: "Cập nhật tên, giá, ảnh hoặc món phụ",
-              icon: Icons.edit_note_outlined,
-              color: Colors.blue,
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminEditListScreen())),
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             _buildAdminCard(
               context,
               title: "Quản lý / Xóa món",
-              subtitle: "Xóa vĩnh viễn các món khỏi thực đơn",
-              icon: Icons.delete_outline,
+              subtitle: "Chỉnh sửa hoặc xóa các món đang kinh doanh",
+              icon: Icons.delete_sweep_outlined,
               color: Colors.redAccent,
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductListScreen(isDeleteMode: true))),
             ),
-            const SizedBox(height: 16),
-            _buildAdminCard(
-              context,
-              title: "Khóa món (Hết hàng)",
-              subtitle: "Tạm dừng kinh doanh các món đang hết",
-              icon: Icons.lock_outline,
-              color: Colors.orange,
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminLockListScreen())),
-            ),
-            const SizedBox(height: 16),
-            
-            // CHỨC NĂNG XEM THỰC ĐƠN MỚI THÊM
-            _buildAdminCard(
-              context,
-              title: "Xem thực đơn",
-              subtitle: "Xem giao diện thực đơn như khách hàng",
-              icon: Icons.restaurant_menu,
-              color: Colors.purple,
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductListScreen(isAdminPreview: true))),
-            ),
-            
-            const SizedBox(height: 40),
-            
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: Colors.red),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                onPressed: () {
-                  context.read<AuthBloc>().add(LogoutEvent());
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ProductListScreen()),
-                    (route) => false,
-                  );
-                },
-                icon: const Icon(Icons.logout, color: Colors.red),
-                label: const Text("ĐĂNG XUẤT KHỎI ADMIN", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      "Lưu ý: Các thay đổi sẽ được áp dụng trực tiếp vào cơ sở dữ liệu của ứng dụng.",
+                      style: TextStyle(fontSize: 12, color: Colors.blueGrey),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -110,31 +74,41 @@ class AdminActionScreen extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.1),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            )
+          ],
+          border: Border.all(color: color.withOpacity(0.1), width: 1),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
-              child: Icon(icon, color: color, size: 28),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 32),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 20),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.grey),
+            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
           ],
         ),
       ),

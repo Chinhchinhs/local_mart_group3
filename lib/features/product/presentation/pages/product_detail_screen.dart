@@ -2,19 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../cart/domain/entities/cart_item_entity.dart';
 import '../../../cart/presentation/bloc/cart_bloc.dart';
+import '../../../cart/presentation/cart_screen.dart';
 import '../../domain/entities/product_entity.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../widgets/product_image.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final ProductEntity product;
-  final bool isReadOnly; // Thêm chế độ chỉ đọc
 
-  const ProductDetailScreen({
-    super.key, 
-    required this.product, 
-    this.isReadOnly = false,
-  });
+  const ProductDetailScreen({super.key, required this.product});
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
@@ -61,7 +57,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(child: Text(widget.product.name, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold))),
-                      Text(CurrencyFormatter.format(widget.product.price), 
+                      Text(CurrencyFormatter.formatVND(widget.product.price), 
                         style: const TextStyle(fontSize: 18, color: Colors.orange, fontWeight: FontWeight.bold)),
                     ],
                   ),
@@ -85,10 +81,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           contentPadding: EdgeInsets.zero,
                           activeColor: Colors.orange,
                           title: Text(dish.name),
-                          subtitle: Text("+ ${CurrencyFormatter.format(dish.price)}", style: const TextStyle(color: Colors.orange)),
+                          subtitle: Text("+ ${CurrencyFormatter.formatVND(dish.price)}", style: const TextStyle(color: Colors.orange)),
                           value: isSelected,
-                          // VÔ HIỆU HÓA NẾU LÀ CHẾ ĐỘ CHỈ ĐỌC
-                          onChanged: widget.isReadOnly ? null : (val) {
+                          onChanged: (val) {
                             setState(() {
                               if (val!) {
                                 selectedSideDishes.add(dish);
@@ -102,29 +97,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ],
 
-                  if (!widget.isReadOnly) ...[
-                    const SizedBox(height: 30),
-                    const Text("Ghi chú cho quán", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: noteController,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        hintText: "VD: Không ăn hành, cho ít cay...",
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                      ),
+                  const SizedBox(height: 30),
+                  const Text("Ghi chú cho quán", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: noteController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      hintText: "VD: Không ăn hành, cho ít cay...",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.grey[50],
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
           ],
         ),
       ),
-      // ẨN THANH THANH TOÁN NẾU LÀ CHẾ ĐỘ CHỈ ĐỌC
-      bottomNavigationBar: widget.isReadOnly ? null : Container(
+      bottomNavigationBar: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -139,7 +131,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text("Tổng cộng", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    Text(CurrencyFormatter.format(totalPrice), 
+                    Text(CurrencyFormatter.formatVND(totalPrice), 
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red)),
                   ],
                 ),
@@ -151,8 +143,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () {
+                  // KHÔNG CỘNG DỒN VÀO TÊN NỮA -> GỬI ĐÚNG TRƯỜNG
                   final cartItem = CartItemEntity(
-                    id: widget.product.id + DateTime.now().millisecondsSinceEpoch.toString(), 
+                    id: widget.product.id, // Dùng ID gốc để Bloc tự gộp nếu trùng Topping/Note
                     name: widget.product.name,
                     price: widget.product.price,
                     imageUrl: widget.product.imageUrl,
@@ -163,7 +156,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   
                   context.read<CartBloc>().add(AddItemEvent(cartItem));
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Đã thêm vào giỏ hàng!")));
                 },
                 child: const Text("THÊM VÀO GIỎ", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
