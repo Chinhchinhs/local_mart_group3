@@ -75,9 +75,10 @@ class _AnimatedPriceTextState extends State<AnimatedPriceText> with SingleTicker
   }
 }
 
-// WIDGET GHI CHÚ RIÊNG BIỆT ĐỂ KHÔNG LAG KHI GÕ
+// WIDGET GHI CHÚ RIÊNG BIỆT
 class OrderNoteField extends StatefulWidget {
-  const OrderNoteField({super.key});
+  final Function(String) onChanged;
+  const OrderNoteField({super.key, required this.onChanged});
 
   @override
   State<OrderNoteField> createState() => _OrderNoteFieldState();
@@ -94,6 +95,7 @@ class _OrderNoteFieldState extends State<OrderNoteField> {
   Widget build(BuildContext context) {
     return TextField(
       controller: _controller,
+      onChanged: widget.onChanged,
       decoration: const InputDecoration(
         icon: Icon(Icons.note_alt_outlined, size: 18, color: Colors.grey),
         hintText: "Ghi chú cho shipper...",
@@ -105,8 +107,16 @@ class _OrderNoteFieldState extends State<OrderNoteField> {
   }
 }
 
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  String voucherCode = "";
+  String shipperNote = "";
 
   @override
   Widget build(BuildContext context) {
@@ -259,6 +269,19 @@ class CartScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildEmptyCart(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.shopping_bag_outlined, size: 100, color: Colors.grey[200]),
+          const SizedBox(height: 20),
+          const Text("Giỏ hàng trống", style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFreeShipProgress(double totalPrice) {
     const double threshold = 200000;
     double progress = totalPrice / threshold;
@@ -386,22 +409,8 @@ class CartScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyCart(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.shopping_bag_outlined, size: 100, color: Colors.grey[200]),
-          const SizedBox(height: 20),
-          const Text("Giỏ hàng trống", style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
   Widget _buildBottomBar(BuildContext context) {
     return BlocBuilder<CartBloc, CartState>(
-      // ĐIỀU KIỆN BUILD QUAN TRỌNG ĐỂ XÓA ĐƯỢC NHIỀU MÓN
       buildWhen: (previous, current) => 
           previous.totalPrice != current.totalPrice || 
           previous.isSelectionMode != current.isSelectionMode ||
@@ -420,31 +429,33 @@ class CartScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (!state.isSelectionMode) ...[
-                  // VOUCHER TĨNH
+                  // Voucher Field
                   InkWell(
                     onTap: () {
-                      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Chọn Voucher")));
+                      _showVoucherInput();
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.confirmation_num_outlined, color: Colors.blue, size: 20),
-                          SizedBox(width: 8),
-                          Text("Voucher của shop", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          Spacer(),
-                          Text("Chọn hoặc nhập mã", style: TextStyle(color: Colors.blue, fontSize: 12)),
-                          Icon(Icons.chevron_right, color: Colors.blue, size: 18),
+                          const Icon(Icons.confirmation_num_outlined, color: Colors.blue, size: 20),
+                          const SizedBox(width: 8),
+                          const Text("Voucher của shop", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          Text(voucherCode.isEmpty ? "Chọn hoặc nhập mã" : voucherCode, 
+                            style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold)),
+                          const Icon(Icons.chevron_right, color: Colors.blue, size: 18),
                         ],
                       ),
                     ),
                   ),
                   const Divider(height: 1),
-                  // GHI CHÚ TĨNH
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: OrderNoteField(),
+                  // Note Field
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: OrderNoteField(onChanged: (val) {
+                      shipperNote = val;
+                    }),
                   ),
                   const Divider(height: 1, thickness: 1),
                   const SizedBox(height: 12),
@@ -487,7 +498,12 @@ class CartScreen extends StatelessWidget {
                               elevation: 2,
                             ),
                             onPressed: () => Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => CheckoutScreen(items: state.items, totalPrice: state.totalPrice)
+                              builder: (_) => CheckoutScreen(
+                                items: state.items, 
+                                totalPrice: state.totalPrice,
+                                voucherCode: voucherCode,
+                                shipperNote: shipperNote,
+                              )
                             )),
                             child: const Text("THANH TOÁN", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
                           ),
@@ -499,6 +515,32 @@ class CartScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _showVoucherInput() {
+    final textController = TextEditingController(text: voucherCode);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Nhập mã Voucher", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: textController,
+          decoration: const InputDecoration(hintText: "Mã giảm giá..."),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("HỦY")),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                voucherCode = textController.text;
+              });
+              Navigator.pop(context);
+            }, 
+            child: const Text("ÁP DỤNG")
+          ),
+        ],
+      ),
     );
   }
 

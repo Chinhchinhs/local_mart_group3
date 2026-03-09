@@ -6,11 +6,15 @@ import 'payment_screen.dart';
 class CheckoutScreen extends StatelessWidget {
   final List<CartItemEntity> items;
   final double totalPrice;
+  final String? voucherCode;
+  final String? shipperNote;
   
   const CheckoutScreen({
     super.key,
     required this.items,
     required this.totalPrice,
+    this.voucherCode,
+    this.shipperNote,
   });
 
   String _formatCurrency(double amount) {
@@ -87,7 +91,6 @@ class CheckoutScreen extends StatelessWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // FIX TRÀN DÒNG: Thêm Expanded và overflow cho tên sản phẩm
                                 Expanded(
                                   child: Text(item.name, 
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -121,6 +124,27 @@ class CheckoutScreen extends StatelessWidget {
                 );
               },
             ),
+
+            if ((voucherCode != null && voucherCode!.isNotEmpty) || (shipperNote != null && shipperNote!.isNotEmpty))
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.withOpacity(0.1)),
+                ),
+                child: Column(
+                  children: [
+                    if (voucherCode != null && voucherCode!.isNotEmpty)
+                      _buildExtraInfo(Icons.confirmation_number_outlined, "Voucher shop:", voucherCode!),
+                    if (voucherCode != null && voucherCode!.isNotEmpty && shipperNote != null && shipperNote!.isNotEmpty)
+                      const Divider(height: 16),
+                    if (shipperNote != null && shipperNote!.isNotEmpty)
+                      _buildExtraInfo(Icons.delivery_dining_outlined, "Ghi chú shipper:", shipperNote!),
+                  ],
+                ),
+              ),
 
             const Divider(height: 40),
             Row(
@@ -157,6 +181,8 @@ class CheckoutScreen extends StatelessWidget {
                         name: nameController.text,
                         phone: phoneController.text,
                         address: addressController.text,
+                        voucherCode: voucherCode,
+                        shipperNote: shipperNote,
                       ),
                     ),
                   );
@@ -183,6 +209,18 @@ class CheckoutScreen extends StatelessWidget {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         prefixIcon: Icon(icon, color: Colors.orange),
       ),
+    );
+  }
+
+  Widget _buildExtraInfo(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.orange),
+        const SizedBox(width: 8),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+        const SizedBox(width: 6),
+        Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
+      ],
     );
   }
 }

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../cart/domain/entities/cart_item_entity.dart';
 import '../../product/presentation/widgets/product_image.dart';
@@ -10,6 +9,8 @@ class PaymentScreen extends StatefulWidget {
   final String name;
   final String phone;
   final String address;
+  final String? voucherCode;
+  final String? shipperNote;
 
   const PaymentScreen({
     super.key,
@@ -18,6 +19,8 @@ class PaymentScreen extends StatefulWidget {
     required this.name,
     required this.phone,
     required this.address,
+    this.voucherCode,
+    this.shipperNote,
   });
 
   @override
@@ -49,6 +52,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             const Text("Vui lòng quét mã QR dưới đây để thực hiện chuyển khoản cho đơn hàng.",
               textAlign: TextAlign.center, style: TextStyle(fontSize: 13)),
             const SizedBox(height: 20),
+            
             Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
@@ -142,6 +146,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           phone: widget.phone,
           address: widget.address,
           paymentMethod: selectedMethod,
+          voucherCode: widget.voucherCode,
+          shipperNote: widget.shipperNote,
         ),
       ),
     );
@@ -219,12 +225,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         borderRadius: BorderRadius.circular(8),
                         child: ProductImage(imageUrl: item.imageUrl, width: 50, height: 50),
                       ),
-                      title: Expanded(
-                        child: Text(item.name, 
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      title: Text(item.name, 
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,14 +324,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
         border: Border.all(color: selectedMethod == value ? Colors.orange : Colors.grey.withOpacity(0.1)),
       ),
       child: RadioListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8), // Giảm padding để tránh tràn
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
         secondary: Icon(icon, color: selectedMethod == value ? Colors.orange : Colors.grey),
         title: Text(title, 
-          softWrap: true, // Cho phép xuống dòng nếu chữ quá dài
+          softWrap: true,
           style: TextStyle(
             color: selectedMethod == value ? Colors.orange : Colors.black87,
             fontWeight: selectedMethod == value ? FontWeight.bold : FontWeight.normal,
-            fontSize: 14, // Giảm nhẹ size chữ để vừa vặn hơn
+            fontSize: 14,
           ),
         ),
         value: value,

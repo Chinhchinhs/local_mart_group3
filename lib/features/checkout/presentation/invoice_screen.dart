@@ -1,5 +1,9 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../cart/domain/entities/cart_item_entity.dart';
 import '../../cart/presentation/bloc/cart_bloc.dart';
 import '../../product/presentation/widgets/product_image.dart';
@@ -11,6 +15,8 @@ class InvoiceScreen extends StatelessWidget {
   final String phone;
   final String address;
   final String paymentMethod;
+  final String? voucherCode;
+  final String? shipperNote;
 
   const InvoiceScreen({
     super.key,
@@ -20,6 +26,8 @@ class InvoiceScreen extends StatelessWidget {
     required this.phone,
     required this.address,
     required this.paymentMethod,
+    this.voucherCode,
+    this.shipperNote,
   });
 
   String _formatCurrency(double amount) {
@@ -41,6 +49,86 @@ class InvoiceScreen extends StatelessWidget {
         return method;
     }
   }
+  /// Hàm tạo file PDF hóa đơn
+  Future<Uint8List> _generatePdf(PdfPageFormat format) async {
+    final pdf = pw.Document();
+    // Tải font hỗ trợ tiếng Việt
+    final font = await PdfGoogleFonts.robotoRegular();
+    final fontBold = await PdfGoogleFonts.robotoBold();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: format,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Center(
+                child: pw.Text("LOCAL MART - HÓA ĐƠN ĐẶT HÀNG", 
+                  style: pw.TextStyle(font: fontBold, fontSize: 20)),
+              ),
+              pw.SizedBox(height: 20),
+              
+              pw.Text("Thông tin khách hàng:", style: pw.TextStyle(font: fontBold, fontSize: 14)),
+              pw.Text("Tên: $name", style: pw.TextStyle(font: font)),
+              pw.Text("SĐT: $phone", style: pw.TextStyle(font: font)),
+              pw.Text("Địa chỉ: $address", style: pw.TextStyle(font: font)),
+              pw.SizedBox(height: 20),
+
+              pw.Text("Chi tiết đơn hàng:", style: pw.TextStyle(font: fontBold, fontSize: 14)),
+              pw.Divider(),
+              
+              pw.Column(
+                children: items.map((item) {
+                  return pw.Padding(
+                    padding: const pw.EdgeInsets.symmetric(vertical: 4),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Expanded(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text(item.name, style: pw.TextStyle(font: fontBold)),
+                              pw.Text("Số lượng: ${item.quantity}", style: pw.TextStyle(font: font, fontSize: 10)),
+                              if (item.selectedSideDishes.isNotEmpty)
+                                pw.Text("Món phụ: ${item.selectedSideDishes.map((e) => e.name).join(', ')}", 
+                                  style: pw.TextStyle(font: font, fontSize: 9)),
+                            ],
+                          ),
+                        ),
+                        pw.Text("${_formatCurrency(item.totalPrice)} VND", style: pw.TextStyle(font: font)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+              
+              pw.Divider(),
+              if (voucherCode != null && voucherCode!.isNotEmpty)
+                pw.Text("Voucher: $voucherCode", style: pw.TextStyle(font: font)),
+              pw.Text("Phương thức: ${_getPaymentMethodText(paymentMethod)}", style: pw.TextStyle(font: font)),
+              pw.SizedBox(height: 10),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text("TỔNG CỘNG:", style: pw.TextStyle(font: fontBold, fontSize: 16)),
+                  pw.Text("${_formatCurrency(totalPrice)} VND", 
+                    style: pw.TextStyle(font: fontBold, fontSize: 16, color: PdfColors.red)),
+                ],
+              ),
+              pw.SizedBox(height: 40),
+              pw.Center(
+                child: pw.Text("Cảm ơn quý khách đã mua sắm!", style: pw.TextStyle(font: font, fontStyle: pw.FontStyle.italic)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +141,18 @@ class InvoiceScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          // Nút In hóa đơn
+          IconButton(
+            icon: const Icon(Icons.print, color: Colors.orange),
+            onPressed: () async {
+              await Printing.layoutPdf(
+                onLayout: (PdfPageFormat format) => _generatePdf(format),
+                name: 'HoaDon_LocalMart_$name',
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -112,7 +212,6 @@ class InvoiceScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Sửa lỗi tràn tên sản phẩm ở Invoice
                                 Text(item.name, 
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                   maxLines: 1,
@@ -143,12 +242,33 @@ class InvoiceScreen extends StatelessWidget {
                 );
               },
             ),
+
+            if ((voucherCode != null && voucherCode!.isNotEmpty) || (shipperNote != null && shipperNote!.isNotEmpty))
+              Container(
+                margin: const EdgeInsets.only(top: 15, bottom: 15),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.withOpacity(0.1)),
+                ),
+                child: Column(
+                  children: [
+                    if (voucherCode != null && voucherCode!.isNotEmpty)
+                      _infoRow(Icons.confirmation_number_outlined, "Voucher shop:", voucherCode!),
+                    if (voucherCode != null && voucherCode!.isNotEmpty && shipperNote != null && shipperNote!.isNotEmpty)
+                      const Divider(height: 16),
+                    if (shipperNote != null && shipperNote!.isNotEmpty)
+                      _infoRow(Icons.delivery_dining_outlined, "Ghi chú shipper:", shipperNote!),
+                  ],
+                ),
+              ),
+
             const Divider(height: 30),
 
-            // Sửa lỗi tràn tại dòng Phương thức thanh toán
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start, // Căn lề trên để trông đẹp hơn khi xuống dòng
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text("Phương thức thanh toán:", style: TextStyle(color: Colors.grey)),
                 const SizedBox(width: 10),
@@ -221,7 +341,6 @@ class InvoiceScreen extends StatelessWidget {
         const SizedBox(width: 8),
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
         const SizedBox(width: 6),
-        // Sửa lỗi tràn thông tin khách hàng nếu địa chỉ quá dài
         Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
       ],
     );
