@@ -3,14 +3,16 @@ import '../../cart/domain/entities/cart_item_entity.dart';
 import '../../product/presentation/widgets/product_image.dart';
 import 'invoice_screen.dart';
 
+/// Màn hình lựa chọn phương thức thanh toán.
+/// Nhận dữ liệu từ CheckoutScreen và truyền tiếp sang InvoiceScreen để hoàn tất đơn hàng.
 class PaymentScreen extends StatefulWidget {
-  final List<CartItemEntity> items;
-  final double totalPrice;
-  final String name;
-  final String phone;
-  final String address;
-  final String? voucherCode;
-  final String? shipperNote;
+  final List<CartItemEntity> items; // Danh sách sản phẩm trong đơn hàng
+  final double totalPrice; // Tổng giá trị đơn hàng (giá gốc chưa trừ voucher)
+  final String name; // Tên người mua
+  final String phone; // Số điện thoại liên lạc
+  final String address; // Địa chỉ nhận hàng
+  final String? voucherCode; // Mã giảm giá (nếu có)
+  final String? shipperNote; // Ghi chú dành cho người giao hàng (nếu có)
 
   const PaymentScreen({
     super.key,
@@ -28,8 +30,10 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
+  // Phương thức thanh toán được chọn mặc định là tiền mặt (cash)
   String selectedMethod = "cash";
 
+  /// Định dạng tiền tệ theo chuẩn Việt Nam (VD: 100.000)
   String _formatCurrency(double amount) {
     return amount.toStringAsFixed(0).replaceAllMapped(
           RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
@@ -37,10 +41,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         );
   }
 
+  /// Hiển thị cửa sổ (Dialog) chứa mã QR khi người dùng chọn thanh toán Ngân hàng.
   void _showQRCodeDialog() {
     showDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: false, // Bắt buộc người dùng phải nhấn nút Xác nhận hoặc Hủy
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text("Quét mã QR để thanh toán", 
@@ -53,6 +58,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               textAlign: TextAlign.center, style: TextStyle(fontSize: 13)),
             const SizedBox(height: 20),
             
+            // Khung hiển thị hình ảnh mã QR từ assets
             Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
@@ -84,6 +90,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
             ),
             const SizedBox(height: 15),
+            // Hiển thị lại số tiền gốc để khách hàng đối chiếu khi chuyển khoản
             Text("Số tiền: ${_formatCurrency(widget.totalPrice)} VND",
               style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18)),
           ],
@@ -99,8 +106,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () {
-              Navigator.pop(context);
-              _processPaymentSuccess();
+              Navigator.pop(context); // Đóng mã QR
+              _processPaymentSuccess(); // Hiện hiệu ứng thành công
             },
             child: const Text("XÁC NHẬN ĐÃ CHUYỂN", style: TextStyle(color: Colors.white)),
           ),
@@ -109,6 +116,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
+  /// Xử lý hiệu ứng thông báo thanh toán thành công trước khi chuyển trang.
   void _processPaymentSuccess() {
     showDialog(
       context: context,
@@ -129,12 +137,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ),
     );
 
+    // Tự động chuyển sang màn hình hóa đơn sau 1.5 giây
     Future.delayed(const Duration(milliseconds: 1500), () {
-      Navigator.pop(context);
+      Navigator.pop(context); // Đóng dialog thông báo
       _navigateToInvoice();
     });
   }
 
+  /// Chuyển hướng sang màn hình Hóa đơn chi tiết (InvoiceScreen).
   void _navigateToInvoice() {
     Navigator.push(
       context,
@@ -172,6 +182,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSectionTitle("Thông tin giao hàng"),
+              // Khối hiển thị tóm tắt thông tin người nhận
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -204,6 +215,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               const SizedBox(height: 25),
 
               _buildSectionTitle("Sản phẩm đã chọn"),
+              // Liệt kê danh sách sản phẩm tóm tắt
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -248,6 +260,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               const SizedBox(height: 25),
 
               _buildSectionTitle("Chọn phương thức"),
+              // Danh sách các lựa chọn thanh toán
               _buildPaymentOption(
                 title: "Thanh toán khi nhận hàng (COD)",
                 value: "cash",
@@ -266,6 +279,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
               const SizedBox(height: 30),
 
+              // Nút chốt đơn hàng
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -277,6 +291,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () {
+                    // Nếu là ngân hàng thì hiện QR, ngược lại chuyển thẳng tới Hóa đơn
                     if (selectedMethod == "bank") {
                       _showQRCodeDialog();
                     } else {
@@ -294,6 +309,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
+  /// Helper: Tạo tiêu đề cho các phân đoạn trên giao diện.
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -301,6 +317,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
+  /// Helper: Tạo hàng thông tin kèm Icon trang trí.
   Widget _infoRow(IconData icon, String text) {
     return Row(
       children: [
@@ -311,26 +328,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
+  /// Helper: Xây dựng một Widget lựa chọn thanh toán kiểu Radio List Tile có khung viền.
   Widget _buildPaymentOption({
     required String title,
     required String value,
     required IconData icon,
   }) {
+    final bool isSelected = selectedMethod == value;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: selectedMethod == value ? Colors.orange.withOpacity(0.05) : Colors.transparent,
+        color: isSelected ? Colors.orange.withOpacity(0.05) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: selectedMethod == value ? Colors.orange : Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: isSelected ? Colors.orange : Colors.grey.withOpacity(0.1)),
       ),
       child: RadioListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-        secondary: Icon(icon, color: selectedMethod == value ? Colors.orange : Colors.grey),
+        secondary: Icon(icon, color: isSelected ? Colors.orange : Colors.grey),
         title: Text(title, 
           softWrap: true,
           style: TextStyle(
-            color: selectedMethod == value ? Colors.orange : Colors.black87,
-            fontWeight: selectedMethod == value ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? Colors.orange : Colors.black87,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             fontSize: 14,
           ),
         ),
