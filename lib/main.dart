@@ -18,6 +18,8 @@ import 'features/cart/domain/usecases/add_to_cart_usecase.dart';
 import 'features/product/domain/usecases/get_products_usecase.dart';
 import 'features/product/domain/usecases/add_product_usecase.dart';
 import 'features/product/domain/usecases/delete_product_usecase.dart';
+import 'features/product/domain/usecases/get_remote_products_usecase.dart';
+import 'features/product/domain/usecases/get_remote_categories_usecase.dart';
 
 // --- Presentation ---
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -58,6 +60,8 @@ void main() async {
             GetProductsUseCase(productRepository),
             AddProductUseCase(productRepository),
             DeleteProductUseCase(productRepository),
+            GetRemoteProductsUseCase(productRepository),
+            GetRemoteCategoriesUseCase(productRepository),
           )..add(LoadProductsEvent()),
         ),
       ],

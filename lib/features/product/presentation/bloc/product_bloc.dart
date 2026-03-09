@@ -3,11 +3,18 @@ import '../../domain/entities/product_entity.dart';
 import '../../domain/usecases/get_products_usecase.dart';
 import '../../domain/usecases/add_product_usecase.dart';
 import '../../domain/usecases/delete_product_usecase.dart';
+import '../../domain/usecases/get_remote_products_usecase.dart';
+import '../../domain/usecases/get_remote_categories_usecase.dart';
 import 'product_state.dart';
 
 abstract class ProductEvent {}
 
 class LoadProductsEvent extends ProductEvent {}
+
+class ChangeCategoryEvent extends ProductEvent {
+  final String category;
+  ChangeCategoryEvent(this.category);
+}
 
 class AddProductEvent extends ProductEvent {
   final ProductEntity product;
@@ -28,15 +35,48 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
   final GetProductsUseCase getProducts;
   final AddProductUseCase addProduct;
   final DeleteProductUseCase deleteProduct;
+  final GetRemoteProductsUseCase getRemoteProducts;
+  final GetRemoteCategoriesUseCase getRemoteCategories;
 
-  ProductBloc(this.getProducts, this.addProduct, this.deleteProduct) 
-      : super(const ProductState()) {
+  ProductBloc(
+    this.getProducts, 
+    this.addProduct, 
+    this.deleteProduct,
+    this.getRemoteProducts,
+    this.getRemoteCategories,
+  ) : super(const ProductState()) {
 
     on<LoadProductsEvent>((event, emit) async {
       emit(state.copyWith(isLoading: true));
       try {
-        final products = await getProducts();
-        emit(state.copyWith(localProducts: List.from(products), isLoading: false));
+        // 1. Lấy danh mục từ API nếu chưa có
+        List<Map<String, String>> categories = state.categories;
+        if (categories.isEmpty) {
+          categories = await getRemoteCategories.execute();
+        }
+
+        // 2. Lấy sản phẩm Local (SQLite)
+        final localProducts = await getProducts();
+
+        // 3. Lấy sản phẩm Remote (API) theo danh mục hiện tại
+        final remoteProducts = await getRemoteProducts.execute(state.selectedCategory);
+
+        emit(state.copyWith(
+          localProducts: List.from(localProducts),
+          remoteProducts: List.from(remoteProducts),
+          categories: categories,
+          isLoading: false,
+        ));
+      } catch (e) {
+        emit(state.copyWith(isLoading: false));
+      }
+    });
+
+    on<ChangeCategoryEvent>((event, emit) async {
+      emit(state.copyWith(isLoading: true, selectedCategory: event.category));
+      try {
+        final remoteProducts = await getRemoteProducts.execute(event.category);
+        emit(state.copyWith(remoteProducts: List.from(remoteProducts), isLoading: false));
       } catch (e) {
         emit(state.copyWith(isLoading: false));
       }
@@ -46,8 +86,8 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
       emit(state.copyWith(isLoading: true));
       try {
         await addProduct(event.product);
-        final newProducts = await getProducts();
-        emit(state.copyWith(localProducts: List.from(newProducts), isLoading: false));
+        final newLocal = await getProducts();
+        emit(state.copyWith(localProducts: List.from(newLocal), isLoading: false));
       } catch (e) {
         emit(state.copyWith(isLoading: false));
       }
@@ -56,9 +96,9 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
     on<UpdateProductEvent>((event, emit) async {
       emit(state.copyWith(isLoading: true));
       try {
-        await addProduct(event.product); // Replace trong SQLite
-        final newProducts = await getProducts();
-        emit(state.copyWith(localProducts: List.from(newProducts), isLoading: false));
+        await addProduct(event.product);
+        final newLocal = await getProducts();
+        emit(state.copyWith(localProducts: List.from(newLocal), isLoading: false));
       } catch (e) {
         emit(state.copyWith(isLoading: false));
       }
@@ -68,8 +108,8 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
       emit(state.copyWith(isLoading: true));
       try {
         await deleteProduct(event.id);
-        final newProducts = await getProducts();
-        emit(state.copyWith(localProducts: List.from(newProducts), isLoading: false));
+        final newLocal = await getProducts();
+        emit(state.copyWith(localProducts: List.from(newLocal), isLoading: false));
       } catch (e) {
         emit(state.copyWith(isLoading: false));
       }
