@@ -9,6 +9,7 @@ class ProductModel extends ProductEntity {
     required super.description,
     required super.imageUrl,
     super.sideDishes = const [],
+    super.isOutOfStock = false, // THÊM VÀO ĐÂY
   });
 
   factory ProductModel.fromMap(Map<String, dynamic> map) {
@@ -25,9 +26,11 @@ class ProductModel extends ProductEntity {
       description: map['description'],
       imageUrl: map['imageUrl'],
       sideDishes: sideDishesFromMap,
+      isOutOfStock: (map['isOutOfStock'] ?? 0) == 1, // SQLITE LƯU 0/1
     );
   }
 
+  @override
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -36,6 +39,7 @@ class ProductModel extends ProductEntity {
       'description': description,
       'imageUrl': imageUrl,
       'sideDishes': jsonEncode(sideDishes.map((e) => e.toMap()).toList()),
+      'isOutOfStock': isOutOfStock ? 1 : 0, // CHUYỂN SANG 0/1 ĐỂ LƯU SQLITE
     };
   }
 }

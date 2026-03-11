@@ -28,6 +28,7 @@ class ProductRepositoryImpl implements ProductRepository {
       description: product.description,
       imageUrl: product.imageUrl,
       sideDishes: product.sideDishes,
+      isOutOfStock: product.isOutOfStock,
     );
     await dataSource.toggleBestSeller(model, isAdd);
   }
@@ -61,6 +62,7 @@ class ProductRepositoryImpl implements ProductRepository {
       description: product.description,
       imageUrl: product.imageUrl,
       sideDishes: product.sideDishes,
+      isOutOfStock: product.isOutOfStock,
     );
     await dataSource.addProduct(model);
   }
@@ -68,5 +70,16 @@ class ProductRepositoryImpl implements ProductRepository {
   @override
   Future<void> deleteProduct(String id) async {
     await dataSource.deleteProduct(id);
+  }
+
+  // THỰC THI 2 HÀM MỚI ĐỂ HẾT LỖI ĐỎ
+  @override
+  Future<void> toggleOutOfStock(String id) async {
+    await dataSource.toggleOutOfStock(id);
+  }
+
+  @override
+  Future<List<String>> getOutOfStockIds() async {
+    return await dataSource.getOutOfStockIds();
   }
 }

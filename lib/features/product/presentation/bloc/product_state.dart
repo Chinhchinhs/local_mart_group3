@@ -4,7 +4,7 @@ import '../../domain/entities/product_entity.dart';
 class ProductState extends Equatable {
   final List<ProductEntity> localProducts;
   final List<ProductEntity> remoteProducts;
-  final List<ProductEntity> bestSellerProducts; // Danh sách Best Seller do Admin chọn
+  final List<ProductEntity> bestSellerProducts; 
   final List<Map<String, String>> categories; 
   final String selectedCategory;
   final bool isLoading;
@@ -14,11 +14,12 @@ class ProductState extends Equatable {
     this.remoteProducts = const [],
     this.bestSellerProducts = const [],
     this.categories = const [],
-    this.selectedCategory = "Best Seller", // Mặc định chọn Best Seller
+    this.selectedCategory = "Best Seller", 
     this.isLoading = false,
   });
 
-  List<ProductEntity> get products => remoteProducts.isNotEmpty ? remoteProducts : localProducts;
+  // CHỈ TRẢ VỀ REMOTE PRODUCTS ĐỂ HIỂN THỊ TRONG GRID DƯỚI (API)
+  List<ProductEntity> get currentDisplayProducts => remoteProducts;
 
   ProductState copyWith({
     List<ProductEntity>? localProducts,
