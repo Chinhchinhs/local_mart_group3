@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // THÊM THƯ VIỆN NÀY
 import '../../domain/entities/user_entity.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -18,12 +19,7 @@ class LoginRequestedEvent extends AuthEvent {
   List<Object?> get props => [username, password];
 }
 
-class RegisterRequestedEvent extends AuthEvent {
-  final UserEntity user;
-  RegisterRequestedEvent(this.user);
-  @override
-  List<Object?> get props => [user];
-}
+class CheckAuthStatusEvent extends AuthEvent {} // EVENT KIỂM TRA KHI MỞ APP
 
 class LogoutEvent extends AuthEvent {}
 
@@ -48,32 +44,44 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   AuthBloc(this.loginUseCase, this.repository) : super(const AuthState()) {
     
+    // KIỂM TRA PHIÊN ĐĂNG NHẬP CŨ
+    on<CheckAuthStatusEvent>((event, emit) async {
+      final prefs = await SharedPreferences.getInstance();
+      final bool? isAdmin = prefs.getBool('isAdmin');
+      final bool? isLogged = prefs.getBool('isLoggedIn');
+
+      if (isAdmin == true) {
+        emit(const AuthState(status: AuthStatus.admin));
+      } else if (isLogged == true) {
+        emit(const AuthState(status: AuthStatus.authenticated));
+      } else {
+        emit(const AuthState(status: AuthStatus.unauthenticated));
+      }
+    });
+
     on<LoginRequestedEvent>((event, emit) async {
-      // Logic Admin cố định
+      emit(const AuthState(status: AuthStatus.initial));
+      final prefs = await SharedPreferences.getInstance();
+      
       if (event.username == "admin" && event.password == "admin123") {
+        await prefs.setBool('isAdmin', true); // LƯU PHIÊN ADMIN
         emit(const AuthState(status: AuthStatus.admin));
         return;
       }
 
       final user = await loginUseCase.execute(event.username, event.password);
       if (user != null) {
+        await prefs.setBool('isLoggedIn', true); // LƯU PHIÊN USER
         emit(AuthState(status: AuthStatus.authenticated, user: user));
       } else {
         emit(const AuthState(status: AuthStatus.error, errorMessage: "Sai tài khoản hoặc mật khẩu"));
       }
     });
 
-    on<RegisterRequestedEvent>((event, emit) async {
-      try {
-        await repository.register(event.user);
-        emit(const AuthState(status: AuthStatus.unauthenticated)); // Đăng ký xong quay về login
-      } catch (e) {
-        emit(const AuthState(status: AuthStatus.error, errorMessage: "Tên đăng nhập đã tồn tại"));
-      }
-    });
-
-    on<LogoutEvent>((event, emit) {
-      emit(const AuthState(status: AuthStatus.unauthenticated));
+    on<LogoutEvent>((event, emit) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear(); // XÓA SẠCH PHIÊN KHI LOGOUT
+      emit(const AuthState(status: AuthStatus.initial));
     });
   }
 }

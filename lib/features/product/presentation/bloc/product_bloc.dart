@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/product_entity.dart';
-import '../../domain/repositories/product_repository.dart'; // Thêm import này
+import '../../domain/repositories/product_repository.dart';
 import '../../domain/usecases/get_products_usecase.dart';
 import '../../domain/usecases/add_product_usecase.dart';
 import '../../domain/usecases/delete_product_usecase.dart';
@@ -23,6 +23,11 @@ class ToggleBestSellerEvent extends ProductEvent {
   ToggleBestSellerEvent(this.product);
 }
 
+class ToggleOutOfStockEvent extends ProductEvent {
+  final String productId;
+  ToggleOutOfStockEvent(this.productId);
+}
+
 class AddProductEvent extends ProductEvent {
   final ProductEntity product;
   AddProductEvent(this.product);
@@ -40,7 +45,6 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
   final GetRemoteProductsUseCase getRemoteProducts;
   final GetRemoteCategoriesUseCase getRemoteCategories;
 
-  // Lấy repository từ một trong các usecase
   ProductRepository get _repository => getProducts.repository;
 
   ProductBloc({
@@ -53,10 +57,10 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
 
     on<FetchRemoteCategoriesEvent>((event, emit) async {
       try {
-        // Nạp Best Sellers từ Database trước khi load Category
         final bestSellers = await _repository.getBestSellers();
-        
         final categoriesFromApi = await getRemoteCategories.execute();
+        
+        // ĐẢM BẢO KEY 'name' VÀ 'image' LUÔN CHÍNH XÁC
         final updatedCategories = _buildCategoriesWithBestSeller(bestSellers, categoriesFromApi);
         
         emit(state.copyWith(
@@ -65,7 +69,6 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
           isLoading: false
         ));
         
-        // Load món ăn cho danh mục hiện tại (thường là Best Seller khi mới mở)
         add(FetchRemoteProductsEvent(category: state.selectedCategory));
       } catch (e) {
         emit(state.copyWith(isLoading: false));
@@ -75,21 +78,52 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
     on<FetchRemoteProductsEvent>((event, emit) async {
       emit(state.copyWith(isLoading: true, selectedCategory: event.category));
       
+      final outOfStockIds = await _repository.getOutOfStockIds();
+      final localProducts = await getProducts();
+
       if (event.category == 'Best Seller') {
-        if (state.bestSellerProducts.isEmpty) {
-          final products = await getRemoteProducts.execute('Beef');
-          emit(state.copyWith(remoteProducts: List.from(products), isLoading: false));
-        } else {
-          emit(state.copyWith(remoteProducts: List.from(state.bestSellerProducts), isLoading: false));
-        }
+        final products = state.bestSellerProducts.map((p) {
+          return p.copyWith(isOutOfStock: outOfStockIds.contains(p.id));
+        }).toList();
+        emit(state.copyWith(remoteProducts: products, isLoading: false, localProducts: localProducts));
       } else {
         try {
-          final products = await getRemoteProducts.execute(event.category);
-          emit(state.copyWith(remoteProducts: List.from(products), isLoading: false));
+          final apiProducts = await getRemoteProducts.execute(event.category);
+          final updatedProducts = apiProducts.map((p) {
+            return p.copyWith(isOutOfStock: outOfStockIds.contains(p.id));
+          }).toList();
+          
+          emit(state.copyWith(remoteProducts: updatedProducts, isLoading: false, localProducts: localProducts));
         } catch (e) {
           emit(state.copyWith(isLoading: false));
         }
       }
+    });
+
+    on<ToggleOutOfStockEvent>((event, emit) async {
+      await _repository.toggleOutOfStock(event.productId);
+      final outOfStockIds = await _repository.getOutOfStockIds();
+      
+      final updatedRemote = state.remoteProducts.map((p) {
+        if (p.id == event.productId) return p.copyWith(isOutOfStock: outOfStockIds.contains(p.id));
+        return p;
+      }).toList();
+
+      final updatedLocal = state.localProducts.map((p) {
+        if (p.id == event.productId) return p.copyWith(isOutOfStock: outOfStockIds.contains(p.id));
+        return p;
+      }).toList();
+
+      final updatedBestSellers = state.bestSellerProducts.map((p) {
+        if (p.id == event.productId) return p.copyWith(isOutOfStock: outOfStockIds.contains(p.id));
+        return p;
+      }).toList();
+
+      emit(state.copyWith(
+        remoteProducts: updatedRemote,
+        localProducts: updatedLocal,
+        bestSellerProducts: updatedBestSellers,
+      ));
     });
 
     on<ToggleBestSellerEvent>((event, emit) async {
@@ -103,7 +137,6 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
         currentList.removeAt(index);
       }
       
-      // LƯU VÀO DATABASE VĨNH VIỄN
       await _repository.toggleBestSeller(event.product, isAdding);
 
       final apiCategoriesOnly = state.categories.where((c) => c['name'] != 'Best Seller').toList();
@@ -121,21 +154,28 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
 
     on<LoadProductsEvent>((event, emit) async {
       final products = await getProducts();
-      emit(state.copyWith(localProducts: List.from(products)));
+      final outOfStockIds = await _repository.getOutOfStockIds();
+      
+      final updatedProducts = products.map((p) {
+        return p.copyWith(isOutOfStock: outOfStockIds.contains(p.id));
+      }).toList();
+
+      emit(state.copyWith(localProducts: updatedProducts));
     });
 
     on<AddProductEvent>((event, emit) async {
       await addProduct(event.product);
-      add(LoadProductsEvent());
+      add(FetchRemoteProductsEvent(category: state.selectedCategory));
     });
 
     on<DeleteProductEvent>((event, emit) async {
       await deleteProduct(event.id);
-      add(LoadProductsEvent());
+      add(FetchRemoteProductsEvent(category: state.selectedCategory));
     });
   }
 
   List<Map<String, String>> _buildCategoriesWithBestSeller(List<ProductEntity> bestSellers, List<Map<String, String>> apiCategories) {
+    // FIX LỖI ẢNH VÀ CHỮ BEST SELLER
     final String bestSellerImg = bestSellers.isNotEmpty 
         ? bestSellers.first.imageUrl 
         : 'https://images.unsplash.com/photo-1543353071-087092ec393a?q=80&w=1000&auto=format&fit=crop';

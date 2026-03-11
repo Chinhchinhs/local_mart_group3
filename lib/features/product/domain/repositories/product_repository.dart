@@ -11,7 +11,11 @@ abstract class ProductRepository {
   Future<void> addProduct(ProductEntity product);
   Future<void> deleteProduct(String id);
 
-  // --- BEST SELLERS (MỚI - LƯU VĨNH VIỄN) ---
+  // --- BEST SELLERS ---
   Future<List<ProductEntity>> getBestSellers();
   Future<void> toggleBestSeller(ProductEntity product, bool isAdd);
+
+  // --- OUT OF STOCK (QUẢN LÝ TRẠNG THÁI HẾT MÓN) ---
+  Future<void> toggleOutOfStock(String id);
+  Future<List<String>> getOutOfStockIds();
 }

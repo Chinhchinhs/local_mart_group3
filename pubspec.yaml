@@ -19,9 +19,10 @@ dependencies:
   path_provider: ^2.1.2
   path: ^1.9.0
   intl: ^0.18.1
-  http: ^1.1.0 # Thêm http để gọi API
+  http: ^1.1.0 
   pdf: ^3.10.8
   printing: ^5.11.1
+  shared_preferences: ^2.2.3 # ĐÃ THÊM THƯ VIỆN LƯU PHIÊN ĐĂNG NHẬP
 
 dev_dependencies:
   flutter_test:
@@ -33,4 +34,3 @@ flutter:
   uses-material-design: true
   assets:
     - "lib/features/checkout/assets/images/Screenshot 2026-03-07 133324.png"
-

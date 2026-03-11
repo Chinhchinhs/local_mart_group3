@@ -33,8 +33,9 @@ class ProductEntity extends Equatable {
   final double price;
   final String description;
   final String imageUrl;
-  final String category; // Để phân loại món ăn (Seafood, Beef, v.v.)
+  final String category; 
   final List<SideDishEntity> sideDishes;
+  final bool isOutOfStock; // THÊM TRƯỜNG NÀY
 
   const ProductEntity({
     required this.id,
@@ -44,12 +45,13 @@ class ProductEntity extends Equatable {
     required this.imageUrl,
     this.category = "General",
     this.sideDishes = const [],
+    this.isOutOfStock = false, // MẶC ĐỊNH LÀ CÒN MÓN
   });
 
-  // Hữu ích khi cần thay đổi giá hoặc món phụ sau khi nhận dữ liệu từ API
   ProductEntity copyWith({
     double? price,
     List<SideDishEntity>? sideDishes,
+    bool? isOutOfStock, // THÊM VÀO COPYWITH
   }) {
     return ProductEntity(
       id: id,
@@ -59,9 +61,10 @@ class ProductEntity extends Equatable {
       imageUrl: imageUrl,
       category: category,
       sideDishes: sideDishes ?? this.sideDishes,
+      isOutOfStock: isOutOfStock ?? this.isOutOfStock,
     );
   }
 
   @override
-  List<Object?> get props => [id, name, price, description, imageUrl, category, sideDishes];
+  List<Object?> get props => [id, name, price, description, imageUrl, category, sideDishes, isOutOfStock];
 }

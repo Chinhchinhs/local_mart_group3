@@ -13,11 +13,11 @@ class ProductLocalDataSource {
   }
 
   Future<Database> _initDB() async {
-    final path = join(await getDatabasesPath(), 'products_v3.db'); // V3 để đảm bảo schema mới nhất
+    final path = join(await getDatabasesPath(), 'local_mart_final.db'); // ĐỔI TÊN LẦN CUỐI CHO CHUẨN
 
     return await openDatabase(
       path,
-      version: 6, 
+      version: 1, 
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products(
@@ -26,7 +26,8 @@ class ProductLocalDataSource {
             price REAL,
             description TEXT,
             imageUrl TEXT,
-            sideDishes TEXT
+            sideDishes TEXT,
+            isOutOfStock INTEGER DEFAULT 0
           )
         ''');
         await db.execute('''
@@ -36,16 +37,46 @@ class ProductLocalDataSource {
             price REAL,
             description TEXT,
             imageUrl TEXT,
-            sideDishes TEXT
+            sideDishes TEXT,
+            isOutOfStock INTEGER DEFAULT 0
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE out_of_stock_ids(
+            id TEXT PRIMARY KEY
           )
         ''');
       },
     );
   }
 
-  // Thêm lại hàm init() để main.dart không bị lỗi
   Future<void> init() async {
     await database;
+  }
+
+  Future<void> toggleOutOfStock(String id) async {
+    final db = await database;
+    // Cập nhật cả 2 nơi: Bảng ID riêng và trực tiếp trong bảng products (nếu có)
+    final List<Map<String, dynamic>> maps = await db.query('out_of_stock_ids', where: 'id = ?', whereArgs: [id]);
+    
+    int newValue = 0;
+    if (maps.isNotEmpty) {
+      await db.delete('out_of_stock_ids', where: 'id = ?', whereArgs: [id]);
+      newValue = 0;
+    } else {
+      await db.insert('out_of_stock_ids', {'id': id});
+      newValue = 1;
+    }
+
+    // Cập nhật trạng thái trực tiếp vào bảng món ăn nhà làm
+    await db.update('products', {'isOutOfStock': newValue}, where: 'id = ?', whereArgs: [id]);
+    await db.update('best_sellers', {'isOutOfStock': newValue}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<String>> getOutOfStockIds() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('out_of_stock_ids');
+    return List.generate(maps.length, (i) => maps[i]['id'] as String);
   }
 
   Future<List<ProductModel>> getProducts() async {
@@ -63,12 +94,15 @@ class ProductLocalDataSource {
 
   Future<void> addProduct(ProductModel product) async {
     final db = await database;
+    // Đảm bảo toMap() đã bao gồm trường isOutOfStock
     await db.insert('products', product.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> deleteProduct(String id) async {
     final db = await database;
     await db.delete('products', where: 'id = ?', whereArgs: [id]);
+    await db.delete('best_sellers', where: 'id = ?', whereArgs: [id]);
+    await db.delete('out_of_stock_ids', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<List<ProductModel>> getBestSellers() async {
