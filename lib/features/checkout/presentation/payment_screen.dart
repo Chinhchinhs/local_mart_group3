@@ -1,5 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
+import 'package:crypto/crypto.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:local_mart/features/auth/presentation/bloc/auth_bloc.dart';
 import '../../cart/domain/entities/cart_item_entity.dart';
 import '../../cart/presentation/bloc/cart_bloc.dart';
@@ -32,6 +37,55 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   String selectedMethod = "cash";
+  
+  late TextEditingController nameController;
+  late TextEditingController phoneController;
+  late TextEditingController addressController;
+  late TextEditingController emailController;
+
+  final String partnerCode = "MOMO"; 
+  final String accessKey = "F8BBA842ECF85"; 
+  final String secretKey = "K951B6PE1waDMi640xX08PD3vg6EkVlz"; 
+  final String requestType = "captureMoMoWallet";
+  final String momoApiUrl = "https://test-payment.momo.vn/gw_payment/transactionProcessor";
+
+  @override
+  void initState() {
+    super.initState();
+    nameController = TextEditingController(text: widget.name);
+    phoneController = TextEditingController(text: widget.phone);
+    addressController = TextEditingController(text: widget.address);
+    emailController = TextEditingController(text: "customer@example.com");
+    _loadSavedUserInfo();
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    phoneController.dispose();
+    addressController.dispose();
+    emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSavedUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      if (prefs.containsKey('user_name')) nameController.text = prefs.getString('user_name')!;
+      if (prefs.containsKey('user_phone')) phoneController.text = prefs.getString('user_phone')!;
+      if (prefs.containsKey('user_address')) addressController.text = prefs.getString('user_address')!;
+      if (prefs.containsKey('user_email')) emailController.text = prefs.getString('user_email')!;
+    });
+  }
+
+  Future<void> _saveUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_name', nameController.text);
+    await prefs.setString('user_phone', phoneController.text);
+    await prefs.setString('user_address', addressController.text);
+    await prefs.setString('user_email', emailController.text);
+  }
 
   String _formatCurrency(double amount) {
     return amount.toStringAsFixed(0).replaceAllMapped(
@@ -40,11 +94,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         );
   }
 
-  // HÀM TÍNH TOÁN GIÁ SAU KHI GIẢM VOUCHER
   double _calculateFinalPrice() {
     if (widget.voucherCode == null || widget.voucherCode!.isEmpty) return widget.totalPrice;
     try {
-      // Lấy số từ chuỗi voucher (VD: "200.000" -> 200000)
       double discount = double.parse(widget.voucherCode!.replaceAll(RegExp(r'[^0-9]'), ''));
       double finalPrice = widget.totalPrice - discount;
       return finalPrice < 0 ? 0 : finalPrice;
@@ -60,25 +112,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Quét mã QR để thanh toán", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+        title: const Text("Quét mã QR Ngân hàng", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Vui lòng quét mã QR dưới đây để thực hiện chuyển khoản.", textAlign: TextAlign.center, style: TextStyle(fontSize: 13)),
-            const SizedBox(height: 20),
-            const Icon(Icons.qr_code_2, size: 150, color: Colors.black),
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!), borderRadius: BorderRadius.circular(10)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset('lib/features/checkout/assets/images/Screenshot 2026-03-07 133324.png', width: 250, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.qr_code_scanner, size: 100)),
+              ),
+            ),
             const SizedBox(height: 15),
-            Text("Số tiền: ${_formatCurrency(finalPrice)} VND",
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18)),
+            Text("Số tiền: ${_formatCurrency(finalPrice)} VND", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18)),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("HỦY", style: TextStyle(color: Colors.grey))),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("HỦY")),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () {
               Navigator.pop(context);
-              _processOrderAndNavigate();
+              _processOrderAndSaveHistory();
             },
             child: const Text("XÁC NHẬN ĐÃ CHUYỂN", style: TextStyle(color: Colors.white)),
           ),
@@ -87,17 +143,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  void _processOrderAndNavigate() {
+  void _processOrderAndSaveHistory() {
+    if (!mounted) return;
     final authState = context.read<AuthBloc>().state;
     final userId = authState.user?.username ?? "admin";
     final double finalPrice = _calculateFinalPrice();
     
-    // TRUYỀN GIÁ ĐÃ KHẤU TRỪ VÀO BLOC ĐỂ LƯU LỊCH SỬ CHÍNH XÁC
     context.read<CartBloc>().add(PlaceOrderEvent(
       userId, 
       voucherCode: widget.voucherCode, 
       shipperNote: widget.shipperNote,
-      finalPrice: finalPrice, // GIÁ ĐÃ GIẢM
+      finalPrice: finalPrice,
     ));
 
     showDialog(
@@ -120,27 +176,103 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
 
     Future.delayed(const Duration(milliseconds: 1500), () {
-      Navigator.pop(context);
+      if (!mounted) return;
+      Navigator.pop(context); 
       _navigateToInvoice();
     });
   }
 
-  void _navigateToInvoice() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => InvoiceScreen(
-          items: widget.items,
-          totalPrice: widget.totalPrice,
-          name: widget.name,
-          phone: widget.phone,
-          address: widget.address,
-          paymentMethod: selectedMethod,
-          voucherCode: widget.voucherCode,
-          shipperNote: widget.shipperNote,
-        ),
+  Future<void> _processMoMoPayment() async {
+    final double finalPrice = _calculateFinalPrice();
+    final String amount = finalPrice.toInt().toString();
+    final String orderId = "LM_${DateTime.now().millisecondsSinceEpoch}";
+    final String requestId = orderId;
+    final String orderInfo = "LocalMart Payment";
+    final String returnUrl = "https://momo.vn";
+    final String notifyUrl = "https://momo.vn";
+    final String extraData = ""; 
+
+    String rawSignature = "partnerCode=$partnerCode&accessKey=$accessKey&requestId=$requestId&amount=$amount&orderId=$orderId&orderInfo=$orderInfo&returnUrl=$returnUrl&notifyUrl=$notifyUrl&extraData=$extraData";
+
+    var key = utf8.encode(secretKey);
+    var bytes = utf8.encode(rawSignature);
+    var hmacSha256 = Hmac(sha256, key);
+    var signature = hmacSha256.convert(bytes).toString();
+
+    showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.orange)));
+
+    try {
+      final response = await http.post(
+        Uri.parse(momoApiUrl),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "partnerCode": partnerCode,
+          "accessKey": accessKey,
+          "requestId": requestId,
+          "amount": amount,
+          "orderId": orderId,
+          "orderInfo": orderInfo,
+          "returnUrl": returnUrl,
+          "notifyUrl": notifyUrl,
+          "extraData": extraData,
+          "requestType": requestType,
+          "signature": signature,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (!mounted) return;
+      if (Navigator.canPop(context)) Navigator.pop(context); 
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200 && data['errorCode'] == 0) {
+        final String? payUrl = data['payUrl'];
+        if (payUrl != null) {
+          await launchUrl(Uri.parse(payUrl), mode: LaunchMode.externalApplication);
+          _showMoMoConfirmation();
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi MoMo: ${data['localMessage']}"), backgroundColor: Colors.red));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      if (Navigator.canPop(context)) Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi kết nối: $e")));
+    }
+  }
+
+  void _showMoMoConfirmation() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text("Xác nhận MoMo"),
+        content: const Text("Bạn đã hoàn tất thanh toán trên ứng dụng MoMo chưa?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CHƯA")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () { 
+              Navigator.pop(context); 
+              _processOrderAndSaveHistory(); 
+            }, 
+            child: const Text("ĐÃ XÁC NHẬN")),
+        ],
       ),
     );
+  }
+
+  void _navigateToInvoice() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => InvoiceScreen(
+      items: widget.items, 
+      totalPrice: widget.totalPrice, 
+      name: nameController.text, 
+      phone: phoneController.text, 
+      address: addressController.text, 
+      paymentMethod: selectedMethod, 
+      voucherCode: widget.voucherCode, 
+      shipperNote: widget.shipperNote,
+    )));
   }
 
   @override
@@ -149,28 +281,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text("PHƯƠNG THỨC THANH TOÁN", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.orange, fontSize: 18)),
-        centerTitle: true, backgroundColor: Colors.white, elevation: 0, iconTheme: const IconThemeData(color: Colors.black),
-      ),
+      appBar: AppBar(title: const Text("PHƯƠNG THỨC THANH TOÁN", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.orange, fontSize: 18)), centerTitle: true, backgroundColor: Colors.white, elevation: 0, iconTheme: const IconThemeData(color: Colors.black)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionTitle("Thông tin giao hàng"),
+              _buildSectionTitle("Thông tin giao hàng (Nhấn để sửa)"),
               Container(
                 width: double.infinity, padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Colors.orange.withOpacity(0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.orange.withOpacity(0.1))),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.05), 
+                  borderRadius: BorderRadius.circular(15), 
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.1))
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _infoRow(Icons.person_outline, widget.name),
-                    const SizedBox(height: 8),
-                    _infoRow(Icons.phone_outlined, widget.phone),
-                    const SizedBox(height: 8),
-                    _infoRow(Icons.location_on_outlined, widget.address),
+                    _buildEditField(nameController, Icons.person_outline, "Họ và tên"),
+                    const SizedBox(height: 10),
+                    _buildEditField(phoneController, Icons.phone_outlined, "Số điện thoại", keyboardType: TextInputType.phone),
+                    const SizedBox(height: 10),
+                    _buildEditField(emailController, Icons.email_outlined, "Địa chỉ Email", keyboardType: TextInputType.emailAddress),
+                    const SizedBox(height: 10),
+                    _buildEditField(addressController, Icons.location_on_outlined, "Địa chỉ nhận hàng"),
                     const Divider(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -188,28 +322,39 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: widget.items.length,
                 itemBuilder: (context, index) {
                   final item = widget.items[index];
-                  return ListTile(
-                    leading: ClipRRect(borderRadius: BorderRadius.circular(8), child: ProductImage(imageUrl: item.imageUrl, width: 40, height: 40)),
-                    title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    trailing: Text("x${item.quantity}"),
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8), 
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
+                    child: ListTile(
+                      leading: ClipRRect(borderRadius: BorderRadius.circular(8), child: ProductImage(imageUrl: item.imageUrl, width: 45, height: 45)),
+                      title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      trailing: Text("x${item.quantity}"),
+                    ),
                   );
                 },
               ),
               const SizedBox(height: 25),
               _buildSectionTitle("Chọn phương thức"),
               _buildPaymentOption(title: "Thanh toán khi nhận hàng (COD)", value: "cash", icon: Icons.money),
-              _buildPaymentOption(title: "Thanh toán qua thẻ", value: "card", icon: Icons.credit_card),
               _buildPaymentOption(title: "Chuyển khoản ngân hàng", value: "bank", icon: Icons.account_balance),
+              _buildPaymentOption(title: "Ví điện tử MoMo", value: "momo", icon: Icons.account_balance_wallet),
               const SizedBox(height: 30),
               SizedBox(
                 width: double.infinity, height: 55,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  onPressed: () {
-                    if (selectedMethod == "bank") {
+                  onPressed: () async {
+                    if (nameController.text.isEmpty || phoneController.text.isEmpty || addressController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Vui lòng điền đủ thông tin giao hàng"), backgroundColor: Colors.red));
+                      return;
+                    }
+                    await _saveUserInfo(); 
+                    if (selectedMethod == "momo") {
+                      _processMoMoPayment(); 
+                    } else if (selectedMethod == "bank") {
                       _showQRCodeDialog();
                     } else {
-                      _processOrderAndNavigate();
+                      _processOrderAndSaveHistory(); 
                     }
                   },
                   child: const Text("XÁC NHẬN THANH TOÁN", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -222,21 +367,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)));
+  Widget _buildEditField(TextEditingController controller, IconData icon, String label, {TextInputType? keyboardType}) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon, size: 18, color: Colors.orange),
+        labelText: label, labelStyle: const TextStyle(color: Colors.grey, fontWeight: FontWeight.normal),
+        isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.orange.withValues(alpha: 0.2))),
+      ),
+    );
   }
 
-  Widget _infoRow(IconData icon, String text) {
-    return Row(children: [Icon(icon, size: 18, color: Colors.orange), const SizedBox(width: 8), Text(text)]);
-  }
+  Widget _buildSectionTitle(String title) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)));
 
   Widget _buildPaymentOption({required String title, required String value, required IconData icon}) {
     final bool isSelected = selectedMethod == value;
-    return RadioListTile(
-      secondary: Icon(icon, color: isSelected ? Colors.orange : Colors.grey),
-      title: Text(title),
-      value: value, groupValue: selectedMethod, activeColor: Colors.orange,
-      onChanged: (newValue) => setState(() => selectedMethod = newValue!),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(color: isSelected ? Colors.orange.withValues(alpha: 0.05) : Colors.transparent, borderRadius: BorderRadius.circular(12), border: Border.all(color: isSelected ? Colors.orange : Colors.grey.withValues(alpha: 0.1))),
+      child: RadioListTile<String>(
+        secondary: Icon(icon, color: isSelected ? Colors.orange : Colors.grey),
+        title: Text(title, style: TextStyle(color: isSelected ? Colors.orange : Colors.black87, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
+        value: value, activeColor: Colors.orange, groupValue: selectedMethod, onChanged: (newValue) => setState(() => selectedMethod = newValue!),
+      ),
     );
   }
 }
