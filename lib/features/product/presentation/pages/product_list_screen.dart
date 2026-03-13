@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_mart/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:local_mart/features/cart/presentation/pages/order_history_screen.dart'; // THÊM IMPORT
 import '../bloc/product_bloc.dart';
 import 'product_detail_screen.dart';
 import 'admin_delete_detail_screen.dart';
@@ -61,7 +62,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 24)),
             backgroundColor: Colors.white,
             elevation: 0,
-            leading: _buildLeadingAction(isLoggedIn, isAdmin),
+            leading: _buildLeadingAction(isLoggedIn, isAdmin, authState.user?.username ?? "admin"),
             actions: [
               if (!widget.isDeleteMode)
                 _buildCartIcon(context),
@@ -115,7 +116,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
     );
   }
 
-  Widget _buildLeadingAction(bool isLoggedIn, bool isAdmin) {
+  Widget _buildLeadingAction(bool isLoggedIn, bool isAdmin, String userId) {
     if (widget.isDeleteMode) {
       return IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context));
     }
@@ -134,12 +135,18 @@ class _ProductListScreenState extends State<ProductListScreen> {
           _handleLogout();
         } else if (value == 'admin') {
           Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminActionScreen()));
+        } else if (value == 'history') {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => OrderHistoryScreen(userId: userId, isAdmin: isAdmin)));
         }
       },
       itemBuilder: (context) => [
         PopupMenuItem(
           enabled: false,
           child: Text(isAdmin ? "Chào Admin" : "Chào khách hàng", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+        ),
+        PopupMenuItem(
+          value: 'history',
+          child: Row(children: [Icon(Icons.history, color: Colors.blue[700]), const SizedBox(width: 8), Text(isAdmin ? "Quản lý đơn hàng" : "Lịch sử mua hàng")]),
         ),
         if (isAdmin)
           const PopupMenuItem(
@@ -155,7 +162,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   Widget _buildUserHomeView(ProductState state, bool isAdmin) {
-    // LỌC TÌM KIẾM
     final localFiltered = state.localProducts.where((p) => p.name.toLowerCase().contains(_searchQuery)).toList();
     final remoteFiltered = state.currentDisplayProducts.where((p) => p.name.toLowerCase().contains(_searchQuery)).toList();
 
@@ -257,7 +263,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   Widget _buildAdminGridView(ProductState state, bool isAdmin) {
-    // TRONG CHẾ ĐỘ QUẢN LÝ, CHỈ HIỂN THỊ MÓN NHÀ LÀM ĐỂ XÓA/SỬA
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: state.localProducts.length,
