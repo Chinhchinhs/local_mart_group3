@@ -100,7 +100,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  /// GỌI API MOMO GATEWAY CHUẨN XÁC THEO HÌNH ẢNH
+  /// GỌI API MOMO GATEWAY VỚI CẤU HÌNH MỚI TỪ HÌNH ẢNH
   Future<void> _processMoMoPayment() async {
     final double voucherDiscount = _parseVoucher(widget.voucherCode);
     final int finalPrice = (widget.totalPrice - voucherDiscount).toInt();
@@ -109,11 +109,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final String orderId = "LM_" + DateTime.now().millisecondsSinceEpoch.toString();
     final String requestId = orderId;
     final String orderInfo = "LocalMart Payment";
-    final String returnUrl = "https://momo.vn"; // Tương ứng với ReturnUrl trong hình
-    final String notifyUrl = "https://momo.vn"; // Tương ứng với NotifyUrl trong hình
+    final String returnUrl = "https://momo.vn"; 
+    final String notifyUrl = "https://momo.vn"; 
     final String extraData = ""; 
 
-    // TẠO CHỮ KÝ CHUẨN (Thứ tự tham số cực kỳ quan trọng cho Code 13)
+    // TẠO CHỮ KÝ CHUẨN XÁC THEO THỨ TỰ THAM SỐ MOMO V2
     String rawSignature = "partnerCode=$partnerCode&accessKey=$accessKey&requestId=$requestId&amount=$amount&orderId=$orderId&orderInfo=$orderInfo&returnUrl=$returnUrl&notifyUrl=$notifyUrl&extraData=$extraData";
 
     var key = utf8.encode(secretKey);
@@ -154,7 +154,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Lỗi MoMo: ${data['localMessage'] ?? data['message']} (Code: ${data['errorCode']})"), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text("Lỗi: ${data['localMessage'] ?? data['message']} (Code: ${data['errorCode']})"), 
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 10),
+          ),
         );
       }
     } catch (e) {
@@ -239,7 +243,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     if (selectedMethod == "momo") {
                       _processMoMoPayment(); 
                     } else if (selectedMethod == "bank") {
-                      _showQRCodeDialog();
+                      _showQRCodeDialog("bank");
                     } else {
                       _processPaymentSuccess();
                     }
@@ -287,7 +291,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  void _showQRCodeDialog() {
+  void _showQRCodeDialog(String type) {
     final double voucherDiscount = _parseVoucher(widget.voucherCode);
     final double finalPrice = widget.totalPrice - voucherDiscount;
     String qrPath = 'lib/features/checkout/assets/images/Screenshot 2026-03-07 133324.png';
@@ -295,7 +299,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       context: context, barrierDismissible: false, 
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Quét mã QR Ngân hàng", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+        title: Text(type == "bank" ? "Quét mã QR Ngân hàng" : "Thanh toán MoMo", textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -303,7 +307,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
               padding: const EdgeInsets.all(5), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!), borderRadius: BorderRadius.circular(10)),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8), 
-                child: Image.asset(qrPath, width: 250, fit: BoxFit.contain, errorBuilder: (_,__,___) => const Icon(Icons.qr_code_scanner, size: 100))
+                child: type == "bank" 
+                  ? Image.asset(qrPath, width: 250, fit: BoxFit.contain, errorBuilder: (_,__,___) => const Icon(Icons.qr_code_scanner, size: 100))
+                  : Column(
+                      children: [
+                        Icon(Icons.account_balance_wallet, size: 100, color: Colors.pink[400]),
+                        const Text("Ví MoMo", style: TextStyle(color: Colors.pink, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
               ),
             ),
             const SizedBox(height: 15),
