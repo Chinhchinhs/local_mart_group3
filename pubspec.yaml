@@ -22,8 +22,9 @@ dependencies:
   http: ^1.1.0 
   pdf: ^3.10.8
   printing: ^5.11.1
-  shared_preferences: ^2.2.3 # ĐÃ THÊM THƯ VIỆN LƯU PHIÊN ĐĂNG NHẬP
-
+  shared_preferences: ^2.2.3
+  url_launcher: ^6.2.5 # ĐÃ THÊM LẠI
+  crypto: ^3.0.3       # ĐÃ THÊM LẠI
 dev_dependencies:
   flutter_test:
     sdk: flutter
