@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../../product/domain/entities/product_entity.dart'; // Đã sửa đường dẫn import đúng
+import '../../../product/domain/entities/product_entity.dart';
 
 class CartItemEntity extends Equatable {
   final String id;
@@ -7,8 +7,8 @@ class CartItemEntity extends Equatable {
   final double price;
   final int quantity;
   final String imageUrl;
-  final List<SideDishEntity> selectedSideDishes; // Món phụ đã chọn
-  final String note; // Ghi chú của khách
+  final List<SideDishEntity> selectedSideDishes;
+  final String note;
 
   const CartItemEntity({
     required this.id,
@@ -20,10 +20,36 @@ class CartItemEntity extends Equatable {
     this.note = "",
   });
 
-  // Tính tổng giá (Giá gốc + Tổng giá món phụ) * Số lượng
   double get totalPrice {
     double sideDishesPrice = selectedSideDishes.fold(0.0, (sum, item) => sum + item.price);
     return (price + sideDishesPrice) * quantity;
+  }
+
+  // THÊM ĐỂ HỖ TRỢ LƯU ĐƠN HÀNG (DẠNG JSON)
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'price': price,
+      'quantity': quantity,
+      'imageUrl': imageUrl,
+      'note': note,
+      'sideDishes': selectedSideDishes.map((x) => {'id': x.id, 'name': x.name, 'price': x.price}).toList(),
+    };
+  }
+
+  factory CartItemEntity.fromMap(Map<String, dynamic> map) {
+    return CartItemEntity(
+      id: map['id'],
+      name: map['name'],
+      price: map['price'],
+      quantity: map['quantity'],
+      imageUrl: map['imageUrl'],
+      note: map['note'] ?? "",
+      selectedSideDishes: (map['sideDishes'] as List?)?.map((x) => SideDishEntity(
+        id: x['id'], name: x['name'], price: x['price']
+      )).toList() ?? [],
+    );
   }
 
   CartItemEntity copyWith({

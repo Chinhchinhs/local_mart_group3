@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_mart/core/utils/currency_formatter.dart';
-import '../../../checkout/presentation/checkout_screen.dart';
+import 'package:local_mart/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:local_mart/features/checkout/presentation/checkout_screen.dart';
 import '../bloc/cart_bloc.dart';
-import '../../checkout/presentation/checkout_screen.dart';
 import 'cart_helper_widgets.dart';
 
 class CartBottomBar extends StatelessWidget {
@@ -22,13 +22,23 @@ class CartBottomBar extends StatelessWidget {
     required this.onNoteChanged,
   });
 
+  // HÀM HỖ TRỢ TÍNH GIÁ GIẢM TỪ CHUỖI VOUCHER
+  double _getDiscountAmount() {
+    if (voucherCode.isEmpty) return 0.0;
+    try {
+      return double.parse(voucherCode.replaceAll(RegExp(r'[^0-9]'), ''));
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 15, offset: const Offset(0, -5))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, -5))],
         borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
       ),
       child: SafeArea(
@@ -89,6 +99,9 @@ class CartBottomBar extends StatelessWidget {
   }
 
   Widget _buildCheckoutRow(BuildContext context) {
+    final double discount = _getDiscountAmount();
+    final double finalPrice = state.totalPrice - discount;
+
     return Row(
       children: [
         Expanded(
@@ -96,10 +109,27 @@ class CartBottomBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Tổng cộng", style: TextStyle(color: Colors.grey, fontSize: 12)),
+              if (discount > 0) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text("Tạm tính:", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    Text(CurrencyFormatter.format(state.totalPrice), style: const TextStyle(color: Colors.grey, fontSize: 11, decoration: TextDecoration.lineThrough)),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text("Giảm giá:", style: TextStyle(color: Colors.green, fontSize: 11)),
+                    Text("-${CurrencyFormatter.format(discount)}", style: const TextStyle(color: Colors.green, fontSize: 11)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+              ],
+              const Text("Tổng cộng", style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.bold)),
               AnimatedPriceText(
                 begin: 0, 
-                end: state.totalPrice, 
+                end: discount > 0 ? finalPrice : state.totalPrice, 
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red)
               ),
             ],
@@ -107,22 +137,41 @@ class CartBottomBar extends StatelessWidget {
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 2,
-            ),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => CheckoutScreen(
-                items: state.items, 
-                totalPrice: state.totalPrice,
-                voucherCode: voucherCode,
-                shipperNote: shipperNote,
-              )
-            )),
-            child: const Text("THANH TOÁN", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+          child: BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, authState) {
+              final bool isLoggedIn = authState.status == AuthStatus.authenticated || authState.status == AuthStatus.admin;
+
+              return ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                ),
+                onPressed: () {
+                  if (!isLoggedIn) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Vui lòng đăng nhập để thanh toán!"),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: Colors.redAccent,
+                      )
+                    );
+                    return;
+                  }
+                  
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => CheckoutScreen(
+                      items: state.items,
+                      totalPrice: state.totalPrice,
+                      voucherCode: voucherCode,
+                      shipperNote: shipperNote,
+                    )
+                  ));
+                },
+                child: const Text("THANH TOÁN", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+              );
+            },
           ),
         ),
       ],
