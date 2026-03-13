@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/cart_item_entity.dart';
+import '../../domain/entities/order_entity.dart';
 import '../../domain/usecases/add_to_cart_usecase.dart';
 import '../../domain/repositories/cart_repository.dart';
 import '../../../product/domain/entities/product_entity.dart';
@@ -13,7 +14,15 @@ class UpdateQuantityEvent extends CartEvent { final String itemId; final int new
 class ToggleSelectionModeEvent extends CartEvent {}
 class ToggleItemSelectionEvent extends CartEvent { final String itemId; ToggleItemSelectionEvent(this.itemId); }
 class DeleteSelectedItemsEvent extends CartEvent {}
-class ClearCartEvent extends CartEvent {} // Thêm lại sự kiện này
+class ClearCartEvent extends CartEvent {}
+
+class PlaceOrderEvent extends CartEvent {
+  final String userId;
+  final String? voucherCode;
+  final String? shipperNote;
+  final double? finalPrice; // THÊM TRƯỜNG GIÁ CUỐI CÙNG
+  PlaceOrderEvent(this.userId, {this.voucherCode, this.shipperNote, this.finalPrice});
+}
 
 class UpdateItemDetailsEvent extends CartEvent {
   final String oldItemId;
@@ -33,11 +42,13 @@ class CartState {
   final List<CartItemEntity> items;
   final bool isSelectionMode;
   final List<String> selectedItemIds;
+  final bool isOrderSuccess;
 
   CartState({
     this.items = const [],
     this.isSelectionMode = false,
     this.selectedItemIds = const [],
+    this.isOrderSuccess = false,
   });
 
   double get totalPrice {
@@ -48,11 +59,13 @@ class CartState {
     List<CartItemEntity>? items,
     bool? isSelectionMode,
     List<String>? selectedItemIds,
+    bool? isOrderSuccess,
   }) {
     return CartState(
       items: items ?? this.items,
       isSelectionMode: isSelectionMode ?? this.isSelectionMode,
       selectedItemIds: selectedItemIds ?? this.selectedItemIds,
+      isOrderSuccess: isOrderSuccess ?? this.isOrderSuccess,
     );
   }
 }
@@ -65,7 +78,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
 
     on<LoadCartEvent>((event, emit) async {
       final savedCart = await repository.getCart();
-      emit(state.copyWith(items: savedCart));
+      emit(state.copyWith(items: savedCart, isOrderSuccess: false));
     });
 
     on<AddItemEvent>((event, emit) async {
@@ -73,6 +86,23 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       final updatedCart = addToCartUseCase.execute(currentCart, event.item);
       await repository.saveCart(updatedCart);
       emit(state.copyWith(items: updatedCart));
+    });
+
+    on<PlaceOrderEvent>((event, emit) async {
+      if (state.items.isEmpty) return;
+
+      final newOrder = OrderEntity(
+        orderId: "ORDER_${DateTime.now().millisecondsSinceEpoch}",
+        userId: event.userId,
+        items: List.from(state.items),
+        totalPrice: event.finalPrice ?? state.totalPrice, // SỬ DỤNG GIÁ ĐÃ GIẢM NẾU CÓ
+        orderDate: DateTime.now(),
+        voucherCode: event.voucherCode,
+        shipperNote: event.shipperNote,
+      );
+
+      await repository.placeOrder(newOrder);
+      emit(state.copyWith(items: [], selectedItemIds: [], isOrderSuccess: true));
     });
 
     on<ClearCartEvent>((event, emit) async {
@@ -86,22 +116,11 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       
       if (index != -1) {
         final oldItem = currentItems[index];
-        if (oldItem.quantity == 1) {
-          currentItems[index] = oldItem.copyWith(
-            selectedSideDishes: event.newSideDishes,
-            note: event.newNote,
-            price: event.newPrice
-          );
-        } else {
-          currentItems[index] = oldItem.copyWith(quantity: oldItem.quantity - 1);
-          final newItem = oldItem.copyWith(
-            id: "${oldItem.id.split('_edited_')[0]}_edited_${DateTime.now().millisecondsSinceEpoch}",
-            quantity: 1,
-            selectedSideDishes: event.newSideDishes,
-            note: event.newNote,
-          );
-          currentItems.add(newItem);
-        }
+        currentItems[index] = oldItem.copyWith(
+          selectedSideDishes: event.newSideDishes,
+          note: event.newNote,
+          price: event.newPrice
+        );
         await repository.saveCart(currentItems);
         emit(state.copyWith(items: currentItems));
       }

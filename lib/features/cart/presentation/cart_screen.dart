@@ -22,38 +22,76 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('GIỎ HÀNG', 
-          style: TextStyle(fontWeight: FontWeight.w900, color: Colors.orange, fontSize: 22, letterSpacing: 1.2)),
-        centerTitle: true,
+    return BlocListener<CartBloc, CartState>(
+      listenWhen: (prev, curr) => curr.isOrderSuccess && !prev.isOrderSuccess,
+      listener: (context, state) {
+        if (state.isOrderSuccess) {
+          _showSuccessDialog(context);
+        }
+      },
+      child: Scaffold(
         backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [_buildSelectionAction()],
-      ),
-      body: BlocBuilder<CartBloc, CartState>(
-        builder: (context, state) {
-          if (state.items.isEmpty) return _buildEmptyCart();
+        appBar: AppBar(
+          title: const Text('GIỎ HÀNG', 
+            style: TextStyle(fontWeight: FontWeight.w900, color: Colors.orange, fontSize: 22, letterSpacing: 1.2)),
+          centerTitle: true,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          actions: [_buildSelectionAction()],
+        ),
+        body: BlocBuilder<CartBloc, CartState>(
+          builder: (context, state) {
+            if (state.items.isEmpty && !state.isOrderSuccess) return _buildEmptyCart();
 
-          return ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            children: [
-              FreeShipProgressBar(totalPrice: state.totalPrice),
-              const SizedBox(height: 10),
-              ...state.items.map((item) => CartItemTile(
-                item: item,
-                isSelected: state.selectedItemIds.contains(item.id),
-                isSelectionMode: state.isSelectionMode,
-                onEdit: () => _navigateToEdit(context, item),
-              )),
-              const CartRecommendations(),
-              const SizedBox(height: 20),
-            ],
-          );
-        },
+            return ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                FreeShipProgressBar(totalPrice: state.totalPrice),
+                const SizedBox(height: 10),
+                ...state.items.map((item) => CartItemTile(
+                  item: item,
+                  isSelected: state.selectedItemIds.contains(item.id),
+                  isSelectionMode: state.isSelectionMode,
+                  onEdit: () => _navigateToEdit(context, item),
+                )),
+                const CartRecommendations(),
+                const SizedBox(height: 20),
+              ],
+            );
+          },
+        ),
+        bottomNavigationBar: _buildBottomSection(),
       ),
-      bottomNavigationBar: _buildBottomSection(),
+    );
+  }
+
+  void _showSuccessDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Column(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 60),
+            SizedBox(height: 10),
+            Text("Đặt hàng thành công!", style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text("Đơn hàng của bạn đã được ghi nhận vào lịch sử.", textAlign: TextAlign.center),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+              onPressed: () {
+                Navigator.pop(ctx);
+                context.read<CartBloc>().add(LoadCartEvent());
+              },
+              child: const Text("XÁC NHẬN", style: TextStyle(color: Colors.white)),
+            ),
+          )
+        ],
+      ),
     );
   }
 
