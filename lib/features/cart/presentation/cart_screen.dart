@@ -117,7 +117,7 @@ class _CartScreenState extends State<CartScreen> {
           voucherCode: voucherCode,
           shipperNote: shipperNote,
           onVoucherChanged: (code) => setState(() => voucherCode = code),
-          onNoteChanged: (note) => shipperNote = note,
+          onNoteChanged: (note) => setState(() => shipperNote = note), // THÊM SETSTATE Ở ĐÂY
         );
       },
     );
