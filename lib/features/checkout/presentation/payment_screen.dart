@@ -19,13 +19,6 @@ class PaymentScreen extends StatefulWidget {
   final String address;
   final String? voucherCode;
   final String? shipperNote;
-  final List<CartItemEntity> items; 
-  final double totalPrice; 
-  final String name; 
-  final String phone; 
-  final String address; 
-  final String? voucherCode; 
-  final String? shipperNote; 
 
   const PaymentScreen({
     super.key,
@@ -113,44 +106,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  void _showQRCodeDialog() {
-    final double finalPrice = _calculateFinalPrice();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Quét mã QR Ngân hàng", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!), borderRadius: BorderRadius.circular(10)),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.asset('lib/features/checkout/assets/images/Screenshot 2026-03-07 133324.png', width: 250, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.qr_code_scanner, size: 100)),
-              ),
-            ),
-            const SizedBox(height: 15),
-            Text("Số tiền: ${_formatCurrency(finalPrice)} VND", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("HỦY")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            onPressed: () {
-              Navigator.pop(context);
-              _processOrderAndSaveHistory();
-            },
-            child: const Text("XÁC NHẬN ĐÃ CHUYỂN", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
+  /// XỬ LÝ LƯU LỊCH SỬ ĐƠN HÀNG VÀ CHUYỂN TRANG
   void _processOrderAndSaveHistory() {
     if (!mounted) return;
     final authState = context.read<AuthBloc>().state;
@@ -190,41 +146,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
   }
 
+  /// GỌI API MOMO GATEWAY CHUẨN XÁC THEO HÌNH ẢNH
   Future<void> _processMoMoPayment() async {
     final double finalPrice = _calculateFinalPrice();
     final String amount = finalPrice.toInt().toString();
-    final String orderId = "LM_${DateTime.now().millisecondsSinceEpoch}";
-    final String requestId = orderId;
-    final String orderInfo = "LocalMart Payment";
-    final String returnUrl = "https://momo.vn";
-    final String notifyUrl = "https://momo.vn";
-    final String extraData = ""; 
-
-    String rawSignature = "partnerCode=$partnerCode&accessKey=$accessKey&requestId=$requestId&amount=$amount&orderId=$orderId&orderInfo=$orderInfo&returnUrl=$returnUrl&notifyUrl=$notifyUrl&extraData=$extraData";
-
-  double _parseVoucher(String? voucher) {
-    if (voucher == null || voucher.isEmpty) return 0.0;
-    try {
-      return double.parse(voucher.replaceAll(RegExp(r'[^0-9]'), ''));
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
-  /// GỌI API MOMO GATEWAY CHUẨN XÁC THEO HÌNH ẢNH
-  Future<void> _processMoMoPayment() async {
-    final double voucherDiscount = _parseVoucher(widget.voucherCode);
-    final int finalPrice = (widget.totalPrice - voucherDiscount).toInt();
-    
-    final String amount = finalPrice.toString();
     final String orderId = "LM_" + DateTime.now().millisecondsSinceEpoch.toString();
     final String requestId = orderId;
     final String orderInfo = "LocalMart Payment";
-    final String returnUrl = "https://momo.vn"; // Tương ứng với ReturnUrl trong hình
-    final String notifyUrl = "https://momo.vn"; // Tương ứng với NotifyUrl trong hình
+    final String returnUrl = "https://momo.vn"; 
+    final String notifyUrl = "https://momo.vn"; 
     final String extraData = ""; 
 
-    // TẠO CHỮ KÝ CHUẨN (Thứ tự tham số cực kỳ quan trọng cho Code 13)
+    // TẠO CHỮ KÝ CHUẨN XÁC THEO THỨ TỰ THAM SỐ MOMO V2
     String rawSignature = "partnerCode=$partnerCode&accessKey=$accessKey&requestId=$requestId&amount=$amount&orderId=$orderId&orderInfo=$orderInfo&returnUrl=$returnUrl&notifyUrl=$notifyUrl&extraData=$extraData";
 
     var key = utf8.encode(secretKey);
@@ -254,7 +187,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ).timeout(const Duration(seconds: 10));
 
       if (!mounted) return;
-      if (Navigator.canPop(context)) Navigator.pop(context); 
+      Navigator.pop(context); 
 
       final data = jsonDecode(response.body);
       
@@ -265,11 +198,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
           _showMoMoConfirmation();
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi MoMo: ${data['localMessage']}"), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Lỗi: ${data['localMessage'] ?? data['message']} (Code: ${data['errorCode']})"), 
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 10),
+          ),
+        );
       }
     } catch (e) {
       if (!mounted) return;
-      if (Navigator.canPop(context)) Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi kết nối: $e")));
     }
   }
@@ -289,21 +227,48 @@ class _PaymentScreenState extends State<PaymentScreen> {
               Navigator.pop(context); 
               _processOrderAndSaveHistory(); 
             }, 
-            child: const Text("ĐÃ XÁC NHẬN")),
+            child: const Text("ĐÃ XÁC NHẬN", style: TextStyle(color: Colors.white))),
         ],
       ),
     );
-          _showConfirmationDialog("MoMo Sandbox");
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Lỗi MoMo: ${data['localMessage'] ?? data['message']} (Code: ${data['errorCode']})"), backgroundColor: Colors.red),
-        );
-      }
-    } catch (e) {
-      if (Navigator.canPop(context)) Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi kết nối: $e")));
-    }
+  }
+
+  void _showQRCodeDialog() {
+    final double finalPrice = _calculateFinalPrice();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Quét mã QR Ngân hàng", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!), borderRadius: BorderRadius.circular(10)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset('lib/features/checkout/assets/images/Screenshot 2026-03-07 133324.png', width: 250, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.qr_code_scanner, size: 100)),
+              ),
+            ),
+            const SizedBox(height: 15),
+            Text("Số tiền: ${_formatCurrency(finalPrice)} VND", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("HỦY")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () {
+              Navigator.pop(context);
+              _processOrderAndSaveHistory();
+            },
+            child: const Text("XÁC NHẬN ĐÃ CHUYỂN", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _navigateToInvoice() {
@@ -322,8 +287,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final double finalPrice = _calculateFinalPrice();
-    final double voucherDiscount = _parseVoucher(widget.voucherCode);
-    final double finalPrice = widget.totalPrice - voucherDiscount;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -337,11 +300,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
               _buildSectionTitle("Thông tin giao hàng (Nhấn để sửa)"),
               Container(
                 width: double.infinity, padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.05), 
-                  borderRadius: BorderRadius.circular(15), 
-                  border: Border.all(color: Colors.orange.withValues(alpha: 0.1))
-                ),
                 decoration: BoxDecoration(color: Colors.orange.withOpacity(0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.orange.withOpacity(0.1))),
                 child: Column(
                   children: [
@@ -370,12 +328,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 itemBuilder: (context, index) {
                   final item = widget.items[index];
                   return Container(
-                    margin: const EdgeInsets.only(bottom: 8), 
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
-                    child: ListTile(
-                      leading: ClipRRect(borderRadius: BorderRadius.circular(8), child: ProductImage(imageUrl: item.imageUrl, width: 45, height: 45)),
-                      title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      trailing: Text("x${item.quantity}"),
                     margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.withOpacity(0.1))),
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -397,9 +349,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
               SizedBox(
                 width: double.infinity, height: 55,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  onPressed: () async {
-                    if (nameController.text.isEmpty || phoneController.text.isEmpty || addressController.text.isEmpty) {
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                   onPressed: () async {
                     if (nameController.text.isEmpty || phoneController.text.isEmpty || addressController.text.isEmpty || emailController.text.isEmpty) {
@@ -412,11 +361,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     } else if (selectedMethod == "bank") {
                       _showQRCodeDialog();
                     } else {
-                      _processOrderAndSaveHistory(); 
-                    }
-                  },
-                  child: const Text("XÁC NHẬN THANH TOÁN", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      _processPaymentSuccess();
+                      _processOrderAndSaveHistory();
                     }
                   },
                   child: const Text("XÁC NHẬN THANH TOÁN", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.1)),
@@ -436,9 +381,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
       decoration: InputDecoration(
         prefixIcon: Icon(icon, size: 18, color: Colors.orange),
-        labelText: label, labelStyle: const TextStyle(color: Colors.grey, fontWeight: FontWeight.normal),
-        isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.orange.withValues(alpha: 0.2))),
         suffixIcon: IconButton(icon: const Icon(Icons.clear, size: 16, color: Colors.grey), onPressed: () => controller.clear()),
         labelText: label,
         labelStyle: const TextStyle(color: Colors.grey, fontWeight: FontWeight.normal),
@@ -455,12 +397,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final bool isSelected = selectedMethod == value;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(color: isSelected ? Colors.orange.withValues(alpha: 0.05) : Colors.transparent, borderRadius: BorderRadius.circular(12), border: Border.all(color: isSelected ? Colors.orange : Colors.grey.withValues(alpha: 0.1))),
-      child: RadioListTile<String>(
-        secondary: Icon(icon, color: isSelected ? Colors.orange : Colors.grey),
-        title: Text(title, style: TextStyle(color: isSelected ? Colors.orange : Colors.black87, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
-        value: value, activeColor: Colors.orange, groupValue: selectedMethod, onChanged: (newValue) => setState(() => selectedMethod = newValue!),
-      decoration: BoxDecoration(color: isSelected ? Colors.orange.withOpacity(0.05) : Colors.transparent, borderRadius: BorderRadius.circular(12), border: Border.all(color: isSelected ? Colors.orange : Colors.grey.withOpacity(0.1))),
+      decoration: BoxDecoration(color: isSelected ? Colors.orange.withOpacity(0.05) : Colors.transparent, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.orange.withOpacity(0.1))),
       child: RadioListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
         secondary: Icon(icon, color: isSelected ? Colors.orange : Colors.grey),
@@ -468,64 +405,5 @@ class _PaymentScreenState extends State<PaymentScreen> {
         value: value, activeColor: Colors.orange, groupValue: selectedMethod, onChanged: (newValue) => setState(() => selectedMethod = newValue!),
       ),
     );
-  }
-
-  void _showQRCodeDialog() {
-    final double voucherDiscount = _parseVoucher(widget.voucherCode);
-    final double finalPrice = widget.totalPrice - voucherDiscount;
-    String qrPath = 'lib/features/checkout/assets/images/Screenshot 2026-03-07 133324.png';
-    showDialog(
-      context: context, barrierDismissible: false, 
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Quét mã QR Ngân hàng", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(5), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!), borderRadius: BorderRadius.circular(10)),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8), 
-                child: Image.asset(qrPath, width: 250, fit: BoxFit.contain, errorBuilder: (_,__,___) => const Icon(Icons.qr_code_scanner, size: 100))
-              ),
-            ),
-            const SizedBox(height: 15),
-            Text("Số tiền: ${_formatCurrency(finalPrice)} VND", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("HỦY")),
-          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.orange), onPressed: () { Navigator.pop(context); _processPaymentSuccess(); }, child: const Text("XÁC NHẬN ĐÃ CHUYỂN", style: TextStyle(color: Colors.white))),
-        ],
-      ),
-    );
-  }
-
-  void _showConfirmationDialog(String method) {
-    showDialog(
-      context: context, barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text("Xác nhận thanh toán"),
-        content: Text("Bạn đã hoàn tất chuyển tiền trên ứng dụng $method chưa?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CHƯA")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            onPressed: () { Navigator.pop(context); _processPaymentSuccess(); }, 
-            child: const Text("ĐÃ CHUYỂN", style: TextStyle(color: Colors.white))
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _processPaymentSuccess() {
-    showDialog(context: context, builder: (context) => Center(child: Card(child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.check_circle, color: Colors.green, size: 60), const SizedBox(height: 10), const Text("Thanh toán thành công!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))])))));
-    Future.delayed(const Duration(milliseconds: 1500), () { 
-      Navigator.pop(context); 
-      Navigator.push(context, MaterialPageRoute(builder: (_) => InvoiceScreen(
-        items: widget.items, totalPrice: widget.totalPrice, name: nameController.text, phone: phoneController.text, address: addressController.text, paymentMethod: selectedMethod, voucherCode: widget.voucherCode, shipperNote: widget.shipperNote,
-      ))); 
-    });
   }
 }
