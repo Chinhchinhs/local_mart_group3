@@ -16,11 +16,16 @@ class ToggleItemSelectionEvent extends CartEvent { final String itemId; ToggleIt
 class DeleteSelectedItemsEvent extends CartEvent {}
 class ClearCartEvent extends CartEvent {}
 
+class SyncCartOnProductUpdateEvent extends CartEvent {
+  final ProductEntity updatedProduct;
+  SyncCartOnProductUpdateEvent(this.updatedProduct);
+}
+
 class PlaceOrderEvent extends CartEvent {
   final String userId;
   final String? voucherCode;
   final String? shipperNote;
-  final double? finalPrice; // THÊM TRƯỜNG GIÁ CUỐI CÙNG
+  final double? finalPrice;
   PlaceOrderEvent(this.userId, {this.voucherCode, this.shipperNote, this.finalPrice});
 }
 
@@ -88,19 +93,55 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       emit(state.copyWith(items: updatedCart));
     });
 
+    on<SyncCartOnProductUpdateEvent>((event, emit) async {
+      final updatedProduct = event.updatedProduct;
+      final List<CartItemEntity> currentItems = List.from(state.items);
+      bool hasChanges = false;
+
+      for (int i = 0; i < currentItems.length; i++) {
+        var item = currentItems[i];
+        
+        // So khớp theo tên sản phẩm (đảm bảo đúng món nhà làm)
+        if (item.name == updatedProduct.name) {
+          // 1. Lọc lại danh sách món phụ: chỉ giữ lại những món vẫn còn được Admin cho phép bán
+          final validSideDishes = item.selectedSideDishes.where((sd) => 
+            updatedProduct.sideDishes.any((psd) => psd.name == sd.name)
+          ).toList();
+
+          // 2. Cập nhật: Luôn lấy Giá gốc mới nhất từ Admin và danh sách món phụ hợp lệ
+          // Kiểm tra xem có gì thay đổi không để tránh save thừa
+          if (validSideDishes.length != item.selectedSideDishes.length || item.price != updatedProduct.price) {
+            hasChanges = true;
+            
+            // QUAN TRỌNG: 
+            // - Gán price = updatedProduct.price (Giá gốc 20k)
+            // - Gán selectedSideDishes = validSideDishes
+            // -> Entity sẽ tự tính: (20k + món phụ) * số lượng = CHÍNH XÁC
+            currentItems[i] = item.copyWith(
+              price: updatedProduct.price, 
+              selectedSideDishes: validSideDishes,
+            );
+          }
+        }
+      }
+
+      if (hasChanges) {
+        await repository.saveCart(currentItems);
+        emit(state.copyWith(items: currentItems));
+      }
+    });
+
     on<PlaceOrderEvent>((event, emit) async {
       if (state.items.isEmpty) return;
-
       final newOrder = OrderEntity(
         orderId: "ORDER_${DateTime.now().millisecondsSinceEpoch}",
         userId: event.userId,
         items: List.from(state.items),
-        totalPrice: event.finalPrice ?? state.totalPrice, // SỬ DỤNG GIÁ ĐÃ GIẢM NẾU CÓ
+        totalPrice: event.finalPrice ?? state.totalPrice,
         orderDate: DateTime.now(),
         voucherCode: event.voucherCode,
         shipperNote: event.shipperNote,
       );
-
       await repository.placeOrder(newOrder);
       emit(state.copyWith(items: [], selectedItemIds: [], isOrderSuccess: true));
     });
@@ -113,7 +154,6 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     on<UpdateItemDetailsEvent>((event, emit) async {
       final List<CartItemEntity> currentItems = List.from(state.items);
       final index = currentItems.indexWhere((item) => item.id == event.oldItemId);
-      
       if (index != -1) {
         final oldItem = currentItems[index];
         currentItems[index] = oldItem.copyWith(
