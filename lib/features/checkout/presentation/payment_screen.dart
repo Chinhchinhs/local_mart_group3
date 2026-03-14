@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:local_mart/features/auth/presentation/bloc/auth_bloc.dart';
 import '../../cart/domain/entities/cart_item_entity.dart';
@@ -37,56 +36,16 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   String selectedMethod = "cash";
-  
-  late TextEditingController nameController;
-  late TextEditingController phoneController;
-  late TextEditingController addressController;
-  late TextEditingController emailController;
 
-  // --- THÔNG TIN MOMO CẬP NHẬT TỪ HÌNH ẢNH CỦA BẠN ---
+  // --- THÔNG TIN MOMO CẬP NHẬT ---
   final String partnerCode = "MOMO"; 
   final String accessKey = "F8BBA842ECF85"; 
   final String secretKey = "K951B6PE1waDMi640xX08PD3vg6EkVlz"; 
   final String requestType = "captureMoMoWallet";
   final String momoApiUrl = "https://test-payment.momo.vn/gw_payment/transactionProcessor";
 
-  @override
-  void initState() {
-    super.initState();
-    nameController = TextEditingController(text: widget.name);
-    phoneController = TextEditingController(text: widget.phone);
-    addressController = TextEditingController(text: widget.address);
-    emailController = TextEditingController(text: "customer@example.com");
-    _loadSavedUserInfo();
-  }
-
-  @override
-  void dispose() {
-    nameController.dispose();
-    phoneController.dispose();
-    addressController.dispose();
-    emailController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadSavedUserInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      if (prefs.containsKey('user_name')) nameController.text = prefs.getString('user_name')!;
-      if (prefs.containsKey('user_phone')) phoneController.text = prefs.getString('user_phone')!;
-      if (prefs.containsKey('user_address')) addressController.text = prefs.getString('user_address')!;
-      if (prefs.containsKey('user_email')) emailController.text = prefs.getString('user_email')!;
-    });
-  }
-
-  Future<void> _saveUserInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_name', nameController.text);
-    await prefs.setString('user_phone', phoneController.text);
-    await prefs.setString('user_address', addressController.text);
-    await prefs.setString('user_email', emailController.text);
-  }
+  // SỬA LẠI BASEURL CHUẨN
+  final String baseUrl = "https://dacolleta-moveably-sima.ngrok-free.dev"; 
 
   String _formatCurrency(double amount) {
     return amount.toStringAsFixed(0).replaceAllMapped(
@@ -106,9 +65,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  /// XỬ LÝ LƯU LỊCH SỬ ĐƠN HÀNG VÀ CHUYỂN TRANG
   void _processOrderAndSaveHistory() {
-    if (!mounted) return;
     final authState = context.read<AuthBloc>().state;
     final userId = authState.user?.username ?? "admin";
     final double finalPrice = _calculateFinalPrice();
@@ -146,18 +103,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
   }
 
-  /// GỌI API MOMO GATEWAY CHUẨN XÁC THEO HÌNH ẢNH
   Future<void> _processMoMoPayment() async {
     final double finalPrice = _calculateFinalPrice();
     final String amount = finalPrice.toInt().toString();
     final String orderId = "LM_" + DateTime.now().millisecondsSinceEpoch.toString();
     final String requestId = orderId;
     final String orderInfo = "LocalMart Payment";
-    final String returnUrl = "https://momo.vn"; 
-    final String notifyUrl = "https://momo.vn"; 
+    
+    final String returnUrl = "$baseUrl/Checkout/PaymentCallBack"; 
+    final String notifyUrl = "$baseUrl/Checkout/MomoNotify"; 
     final String extraData = ""; 
 
-    // TẠO CHỮ KÝ CHUẨN XÁC THEO THỨ TỰ THAM SỐ MOMO V2
     String rawSignature = "partnerCode=$partnerCode&accessKey=$accessKey&requestId=$requestId&amount=$amount&orderId=$orderId&orderInfo=$orderInfo&returnUrl=$returnUrl&notifyUrl=$notifyUrl&extraData=$extraData";
 
     var key = utf8.encode(secretKey);
@@ -202,12 +158,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
           SnackBar(
             content: Text("Lỗi: ${data['localMessage'] ?? data['message']} (Code: ${data['errorCode']})"), 
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 10),
+            duration: const Duration(seconds: 15),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(label: "ĐÓNG", textColor: Colors.white, onPressed: () {}),
           ),
         );
       }
     } catch (e) {
       if (!mounted) return;
+      if (Navigator.canPop(context)) Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi kết nối: $e")));
     }
   }
@@ -275,9 +234,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => InvoiceScreen(
       items: widget.items, 
       totalPrice: widget.totalPrice, 
-      name: nameController.text, 
-      phone: phoneController.text, 
-      address: addressController.text, 
+      name: widget.name, 
+      phone: widget.phone, 
+      address: widget.address, 
       paymentMethod: selectedMethod, 
       voucherCode: widget.voucherCode, 
       shipperNote: widget.shipperNote,
@@ -297,19 +256,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionTitle("Thông tin giao hàng (Nhấn để sửa)"),
+              _buildSectionTitle("Thông tin giao hàng"),
               Container(
                 width: double.infinity, padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(color: Colors.orange.withOpacity(0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.orange.withOpacity(0.1))),
                 child: Column(
                   children: [
-                    _buildEditField(nameController, Icons.person_outline, "Họ và tên"),
+                    _infoRow(Icons.person_outline, widget.name),
                     const SizedBox(height: 10),
-                    _buildEditField(phoneController, Icons.phone_outlined, "Số điện thoại", keyboardType: TextInputType.phone),
+                    _infoRow(Icons.phone_outlined, widget.phone),
                     const SizedBox(height: 10),
-                    _buildEditField(emailController, Icons.email_outlined, "Địa chỉ Email", keyboardType: TextInputType.emailAddress),
-                    const SizedBox(height: 10),
-                    _buildEditField(addressController, Icons.location_on_outlined, "Địa chỉ nhận hàng"),
+                    _infoRow(Icons.location_on_outlined, widget.address),
                     const Divider(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -351,11 +308,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                   onPressed: () async {
-                    if (nameController.text.isEmpty || phoneController.text.isEmpty || addressController.text.isEmpty || emailController.text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Vui lòng điền đủ thông tin giao hàng"), backgroundColor: Colors.red));
-                      return;
-                    }
-                    await _saveUserInfo(); 
                     if (selectedMethod == "momo") {
                       _processMoMoPayment(); 
                     } else if (selectedMethod == "bank") {
@@ -374,30 +326,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _buildEditField(TextEditingController controller, IconData icon, String label, {TextInputType? keyboardType}) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon, size: 18, color: Colors.orange),
-        suffixIcon: IconButton(icon: const Icon(Icons.clear, size: 16, color: Colors.grey), onPressed: () => controller.clear()),
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey, fontWeight: FontWeight.normal),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.orange.withOpacity(0.2))),
-      ),
+  Widget _buildSectionTitle(String title) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)));
+
+  Widget _infoRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.orange),
+        const SizedBox(width: 12),
+        Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
+      ],
     );
   }
-
-  Widget _buildSectionTitle(String title) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)));
 
   Widget _buildPaymentOption({required String title, required String value, required IconData icon}) {
     final bool isSelected = selectedMethod == value;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(color: isSelected ? Colors.orange.withOpacity(0.05) : Colors.transparent, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.orange.withOpacity(0.1))),
+      decoration: BoxDecoration(color: isSelected ? Colors.orange.withOpacity(0.05) : Colors.transparent, borderRadius: BorderRadius.circular(12), border: Border.all(color: isSelected ? Colors.orange : Colors.grey.withOpacity(0.1))),
       child: RadioListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
         secondary: Icon(icon, color: isSelected ? Colors.orange : Colors.grey),

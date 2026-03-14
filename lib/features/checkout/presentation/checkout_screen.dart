@@ -1,11 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import '../../cart/domain/entities/cart_item_entity.dart';
 import '../../product/presentation/widgets/product_image.dart';
 import 'payment_screen.dart';
 
-/// Màn hình Xác nhận đơn hàng: 
-/// Hiển thị thông tin người mua, chi tiết món ăn và tổng kết chi phí trước khi thanh toán.
-class CheckoutScreen extends StatelessWidget {
+class CheckoutScreen extends StatefulWidget {
   final List<CartItemEntity> items; 
   final double totalPrice; 
   final String? voucherCode; 
@@ -19,40 +22,94 @@ class CheckoutScreen extends StatelessWidget {
     this.shipperNote,
   });
 
-  String _formatCurrency(double amount) {
-    return amount.toStringAsFixed(0).replaceAllMapped(
-          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]}.',
-        );
-  }
+  @override
+  State<CheckoutScreen> createState() => _CheckoutScreenState();
+}
 
-  double _parseVoucher(String? voucher) {
-    if (voucher == null || voucher.isEmpty) return 0.0;
-    try {
-      return double.parse(voucher.replaceAll(RegExp(r'[^0-9]'), ''));
-    } catch (e) {
-      return 0.0;
-    }
+class _CheckoutScreenState extends State<CheckoutScreen> {
+  final nameController = TextEditingController();
+  final phoneController = TextEditingController();
+  final addressController = TextEditingController();
+
+  LatLng _selectedLatLng = const LatLng(10.762622, 106.660172); 
+  final MapController _mapController = MapController();
+  bool _locationSelected = false;
+  bool _isSearching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _determinePosition(); 
   }
 
   @override
-  Widget build(BuildContext context) {
-    final double voucherDiscount = _parseVoucher(voucherCode);
-    final double finalPrice = totalPrice - voucherDiscount;
+  void dispose() {
+    nameController.dispose();
+    phoneController.dispose();
+    addressController.dispose();
+    super.dispose();
+  }
 
-    final nameController = TextEditingController();
-    final phoneController = TextEditingController();
-    final addressController = TextEditingController();
+  /// TỰ ĐỘNG TÌM TỌA ĐỘ TỪ ĐỊA CHỈ (GEOCODING MIỄN PHÍ)
+  Future<void> _searchAddress(String query) async {
+    if (query.isEmpty) return;
+    
+    setState(() => _isSearching = true);
+    
+    try {
+      final url = Uri.parse("https://nominatim.openstreetmap.org/search?q=$query&format=json&limit=1");
+      final response = await http.get(url, headers: {'User-Agent': 'local_mart_app'});
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        if (data.isNotEmpty) {
+          final lat = double.parse(data[0]['lat']);
+          final lon = double.parse(data[0]['lon']);
+          
+          setState(() {
+            _selectedLatLng = LatLng(lat, lon);
+            _mapController.move(_selectedLatLng, 16.0);
+            _locationSelected = true;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Lỗi tìm địa chỉ: $e");
+    } finally {
+      setState(() => _isSearching = false);
+    }
+  }
+
+  Future<void> _determinePosition() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return;
+    }
+
+    final position = await Geolocator.getCurrentPosition();
+    setState(() {
+      _selectedLatLng = LatLng(position.latitude, position.longitude);
+      _mapController.move(_selectedLatLng, 15.0);
+      _locationSelected = true;
+    });
+  }
+
+  String _formatCurrency(double amount) => amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.');
+
+  @override
+  Widget build(BuildContext context) {
+    final double voucherDiscount = (widget.voucherCode != null) ? double.tryParse(widget.voucherCode!.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0.0 : 0.0;
+    final double finalPrice = widget.totalPrice - voucherDiscount;
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("XÁC NHẬN ĐƠN HÀNG", 
-          style: TextStyle(fontWeight: FontWeight.w900, color: Colors.orange, fontSize: 20)),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        title: const Text("XÁC NHẬN ĐƠN HÀNG", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.orange, fontSize: 20)),
+        centerTitle: true, elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -65,116 +122,87 @@ class CheckoutScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _buildTextField(phoneController, "Số điện thoại", Icons.phone_outlined, keyboardType: TextInputType.phone),
             const SizedBox(height: 12),
-            _buildTextField(addressController, "Địa chỉ nhận hàng", Icons.location_on_outlined),
             
+            // Ô NHẬP ĐỊA CHỈ CÓ NÚT TÌM KIẾM
+            TextField(
+              controller: addressController,
+              decoration: InputDecoration(
+                labelText: "Địa chỉ nhận hàng",
+                filled: true, fillColor: Colors.grey[50],
+                prefixIcon: const Icon(Icons.location_on_outlined, color: Colors.orange), // Đã sửa lỗi ở đây
+                suffixIcon: _isSearching 
+                  ? const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))
+                  : IconButton(icon: const Icon(Icons.search, color: Colors.blue), onPressed: () => _searchAddress(addressController.text)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+              onSubmitted: (value) => _searchAddress(value),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Vị trí trên bản đồ", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+                TextButton.icon(icon: const Icon(Icons.my_location, size: 16), label: const Text("Vị trí hiện tại", style: TextStyle(fontSize: 12)), onPressed: _determinePosition)
+              ],
+            ),
+            Container(
+              height: 250, width: double.infinity,
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.orange.withOpacity(0.3))),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _selectedLatLng, initialZoom: 15.0,
+                    onTap: (_, latLng) => setState(() { _selectedLatLng = latLng; _locationSelected = true; }),
+                  ),
+                  children: [
+                    TileLayer(urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", userAgentPackageName: 'com.local_mart_group3.app'),
+                    MarkerLayer(markers: [Marker(point: _selectedLatLng, width: 40, height: 40, child: const Icon(Icons.location_on, color: Colors.red, size: 40))]),
+                  ],
+                ),
+              ),
+            ),
+
             const SizedBox(height: 30),
             const Text("Chi tiết đơn hàng", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
 
             ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: items.length,
+              shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+              itemCount: widget.items.length,
               itemBuilder: (context, index) {
-                final item = items[index];
+                final item = widget.items[index];
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.grey.withOpacity(0.1)),
-                  ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: ProductImage(imageUrl: item.imageUrl, width: 60, height: 60),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            Text("Số lượng: ${item.quantity}", style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                          ],
-                        ),
-                      ),
-                      Text("${_formatCurrency(item.totalPrice)} VND", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ],
+                  margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.withOpacity(0.1))),
+                  child: ListTile(
+                    leading: ClipRRect(borderRadius: BorderRadius.circular(8), child: ProductImage(imageUrl: item.imageUrl, width: 50, height: 50)),
+                    title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    trailing: Text("${_formatCurrency(item.totalPrice)} VND"),
                   ),
                 );
               },
             ),
 
-            // Khối hiển thị Voucher và Ghi chú shipper
-            if ((voucherCode != null && voucherCode!.isNotEmpty) || (shipperNote != null && shipperNote!.isNotEmpty))
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.symmetric(vertical: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.withOpacity(0.1)),
-                ),
-                child: Column(
-                  children: [
-                    if (voucherCode != null && voucherCode!.isNotEmpty)
-                      _buildExtraRow(Icons.confirmation_number_outlined, "Voucher shop:", voucherCode!),
-                    if (voucherCode != null && voucherCode!.isNotEmpty && shipperNote != null && shipperNote!.isNotEmpty)
-                      const Divider(height: 16),
-                    if (shipperNote != null && shipperNote!.isNotEmpty)
-                      _buildExtraRow(Icons.delivery_dining_outlined, "Ghi chú shipper:", shipperNote!),
-                  ],
-                ),
-              ),
-
-            const Divider(height: 30),
-            _buildPriceRow("Tạm tính:", _formatCurrency(totalPrice), color: Colors.grey[600]!),
-            if (voucherDiscount > 0)
-              _buildPriceRow("Giảm giá Voucher:", "- ${_formatCurrency(voucherDiscount)} VND", color: Colors.green),
-            const Divider(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("Tổng cộng:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text("${_formatCurrency(finalPrice)} VND",
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red)),
-              ],
-            ),
+            const Divider(height: 40),
+            _buildPriceRow("Tổng cộng:", "${_formatCurrency(finalPrice)} VND", color: Colors.red, fontSize: 22),
             const SizedBox(height: 30),
             
             SizedBox(
-              width: double.infinity,
-              height: 55,
+              width: double.infinity, height: 55,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange, 
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                 onPressed: () {
                   if (nameController.text.isEmpty || phoneController.text.isEmpty || addressController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Vui lòng nhập đầy đủ thông tin"), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Vui lòng nhập đầy đủ thông tin")));
                     return;
                   }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PaymentScreen(
-                        items: items,
-                        totalPrice: totalPrice, 
-                        name: nameController.text,
-                        phone: phoneController.text,
-                        address: addressController.text,
-                        voucherCode: voucherCode,
-                        shipperNote: shipperNote,
-                      ),
-                    ),
-                  );
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentScreen(
+                    items: widget.items, totalPrice: widget.totalPrice, name: nameController.text, phone: phoneController.text, address: addressController.text, voucherCode: widget.voucherCode, shipperNote: widget.shipperNote,
+                  )));
                 },
                 child: const Text("TIẾP TỤC THANH TOÁN", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
@@ -186,41 +214,19 @@ class CheckoutScreen extends StatelessWidget {
   }
 
   Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType}) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: Colors.grey[50],
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        prefixIcon: Icon(icon, color: Colors.orange),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller, keyboardType: keyboardType,
+        decoration: InputDecoration(
+          labelText: label, filled: true, fillColor: Colors.grey[50], prefixIcon: Icon(icon, color: Colors.orange),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        ),
       ),
     );
   }
 
-  Widget _buildExtraRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: Colors.orange),
-        const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: Colors.black54, fontSize: 13)),
-        const SizedBox(width: 6),
-        Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-      ],
-    );
-  }
-
-  Widget _buildPriceRow(String label, String value, {Color color = Colors.black}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: Colors.grey[600])),
-          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
+  Widget _buildPriceRow(String label, String value, {Color color = Colors.black, double fontSize = 16}) {
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: const TextStyle(fontWeight: FontWeight.bold)), Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: fontSize))]);
   }
 }

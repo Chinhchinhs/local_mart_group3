@@ -23,8 +23,11 @@ dependencies:
   pdf: ^3.10.8
   printing: ^5.11.1
   shared_preferences: ^2.2.3
-  url_launcher: ^6.3.1  # THÊM ĐỂ MỞ LINK THANH TOÁN MOMO
-  crypto: ^3.0.6        # THÊM ĐỂ TẠO CHỮ KÝ SHA256 CHO MOMO
+  url_launcher: ^6.3.1
+  crypto: ^3.0.6
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+  geolocator: ^10.1.0  # THÊM THƯ VIỆN LẤY VỊ TRÍ CÒN THIẾU
 
 dev_dependencies:
   flutter_test:
