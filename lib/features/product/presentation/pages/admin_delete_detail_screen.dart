@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:local_mart/features/cart/presentation/bloc/cart_bloc.dart'; // THÊM IMPORT
 import '../bloc/product_bloc.dart';
 import '../../domain/entities/product_entity.dart';
 import '../../../../core/utils/currency_formatter.dart';
@@ -15,7 +16,6 @@ class AdminDeleteDetailScreen extends StatefulWidget {
 }
 
 class _AdminDeleteDetailScreenState extends State<AdminDeleteDetailScreen> {
-  // Sử dụng một biến local để quản lý danh sách món phụ tạm thời nhằm cập nhật UI tức thì
   late ProductEntity currentProduct;
 
   @override
@@ -24,27 +24,74 @@ class _AdminDeleteDetailScreenState extends State<AdminDeleteDetailScreen> {
     currentProduct = widget.product;
   }
 
+  // --- HÀM ĐỒNG BỘ GIỎ HÀNG SAU KHI SỬA ---
+  void _syncWithCart() {
+    // Gọi Event đồng bộ hóa giỏ hàng ngay lập tức
+    context.read<CartBloc>().add(SyncCartOnProductUpdateEvent(currentProduct));
+  }
+
+  void _addSideDish() {
+    final nameController = TextEditingController();
+    final priceController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Thêm món phụ mới"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nameController, decoration: const InputDecoration(labelText: "Tên món phụ")),
+            TextField(controller: priceController, decoration: const InputDecoration(labelText: "Giá tiền"), keyboardType: TextInputType.number),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Hủy")),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.isNotEmpty && priceController.text.isNotEmpty) {
+                final newDish = SideDishEntity(
+                  id: "SD_${DateTime.now().millisecondsSinceEpoch}",
+                  name: nameController.text,
+                  price: double.parse(priceController.text),
+                );
+
+                setState(() {
+                  final newList = List<SideDishEntity>.from(currentProduct.sideDishes)..add(newDish);
+                  currentProduct = currentProduct.copyWith(sideDishes: newList);
+                });
+
+                // Lưu vào SQLite Sản phẩm
+                context.read<ProductBloc>().add(AddProductEvent(currentProduct));
+                // Đồng bộ giỏ hàng (Mặc dù thêm món phụ không làm giảm giá, nhưng vẫn đồng bộ để logic nhất quán)
+                _syncWithCart();
+
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Đã thêm món phụ thành công"), backgroundColor: Colors.green));
+              }
+            },
+            child: const Text("Thêm"),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _deleteSideDish(int index) {
-    // 1. Cập nhật giao diện ngay lập tức (Xóa món phụ khỏi danh sách hiện tại)
     setState(() {
       final newList = List<SideDishEntity>.from(currentProduct.sideDishes);
       newList.removeAt(index);
-      
-      currentProduct = ProductEntity(
-        id: currentProduct.id,
-        name: currentProduct.name,
-        price: currentProduct.price,
-        description: currentProduct.description,
-        imageUrl: currentProduct.imageUrl,
-        sideDishes: newList,
-      );
+      currentProduct = currentProduct.copyWith(sideDishes: newList);
     });
 
-    // 2. Gửi lệnh cập nhật xuống Bloc (Sử dụng AddProductEvent để thay thế dữ liệu cũ trong SQLite)
+    // 1. Cập nhật dữ liệu gốc của món ăn
     context.read<ProductBloc>().add(AddProductEvent(currentProduct));
     
+    // 2. QUAN TRỌNG: Đồng bộ giỏ hàng ngay lập tức để cập nhật giá tiền cho User
+    _syncWithCart();
+    
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Đã xóa món phụ thành công"), backgroundColor: Colors.orange, duration: Duration(milliseconds: 500)),
+      const SnackBar(content: Text("Đã xóa món phụ và cập nhật lại giỏ hàng"), backgroundColor: Colors.orange, duration: Duration(seconds: 1)),
     );
   }
 
@@ -66,7 +113,17 @@ class _AdminDeleteDetailScreenState extends State<AdminDeleteDetailScreen> {
             Text(CurrencyFormatter.format(currentProduct.price), style: const TextStyle(fontSize: 18, color: Colors.orange)),
             
             const Divider(height: 40),
-            const Text("DANH SÁCH MÓN PHỤ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("DANH SÁCH MÓN PHỤ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                TextButton.icon(
+                  onPressed: _addSideDish,
+                  icon: const Icon(Icons.add_circle_outline, color: Colors.green),
+                  label: const Text("THÊM MỚI", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
             const SizedBox(height: 10),
             
             if (currentProduct.sideDishes.isEmpty)
